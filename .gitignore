@@ -1,1 +1,6 @@
 .vercel
+.env
+enrichment_cache.json
+tags.json
+__pycache__/
+*.pyc

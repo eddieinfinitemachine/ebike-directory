@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Build the e-bike directory website with state grouping and chain detection."""
+"""Build the e-bike directory website with state grouping, chain detection,
+selection checkboxes, enrichment modal, and Airtable export."""
 import csv, json, re
 from collections import defaultdict
 
@@ -64,16 +65,23 @@ US_STATES = {
 with open('/Users/eddie/ebike_stores.csv') as f:
     rows = list(csv.DictReader(f))
 
-rows = [r for r in rows if r['state'] in US_STATES_SET]
-for r in rows:
+rows = [r for r in rows if r['state'] in US_STATES_SET and not get_chain(r['name'])]
+for i, r in enumerate(rows):
     r['rating'] = float(r['rating'])
     r['review_count'] = int(r['review_count'])
     r['score'] = round(r['rating'] * r['review_count'], 1)
-    r['chain'] = get_chain(r['name'])
+    r['chain'] = None
+    r['_idx'] = i  # stable index for selection
 
 data_json = json.dumps(rows, separators=(',',':'))
 print(f"Total stores: {len(rows)}")
 print(f"In chains: {sum(1 for r in rows if r['chain'])}")
+print(f"With email: {sum(1 for r in rows if r.get('email','').strip())}")
+
+# Also write data.json separately for server mode
+with open('/Users/eddie/ebike-directory/data.json', 'w') as f:
+    f.write(data_json)
+print("Written: data.json")
 
 # ── Write HTML ─────────────────────────────────────────────────────────────
 html = f'''<!DOCTYPE html>
@@ -101,6 +109,7 @@ html = f'''<!DOCTYPE html>
 body {{
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: var(--bg); color: var(--text); line-height: 1.6; min-height: 100vh;
+  padding-bottom: 80px;
 }}
 .container {{ max-width: 1400px; margin: 0 auto; padding: 0 24px; }}
 
@@ -178,18 +187,21 @@ select:focus {{ border-color: var(--accent); }}
 .chain-header .chain-count {{ font-weight: 400; color: var(--text2); font-size: 13px; }}
 .chain-body.hidden {{ display: none; }}
 
-/* Store card */
+/* Store card — original 4-col grid with inline checkbox */
 .store-card {{
-  display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  display: grid !important;
+  grid-template-columns: 1fr auto auto auto !important;
   gap: 16px;
   padding: 14px 20px;
   align-items: center;
   border-bottom: 1px solid rgba(46,51,69,0.5);
   transition: background 0.15s;
 }}
+.store-card {{ cursor: pointer; }}
 .store-card:hover {{ background: rgba(108,92,231,0.04); }}
+.store-card.selected {{ background: rgba(108,92,231,0.08); }}
 .store-card:last-child {{ border-bottom: none; }}
+.store-check {{ width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; vertical-align: middle; margin-right: 8px; }}
 .store-name {{ font-weight: 600; font-size: 14px; }}
 .store-name a {{ color: var(--text); text-decoration: none; }}
 .store-name a:hover {{ color: var(--accent2); }}
@@ -206,6 +218,11 @@ select:focus {{ border-color: var(--accent); }}
 .badge.lastmile {{ background: rgba(0,206,209,0.15); color: #00ced1; }}
 .badge.powersports {{ background: rgba(255,107,107,0.15); color: #ff6b6b; }}
 .badge.unknown {{ background: rgba(147,152,173,0.15); color: var(--text2); }}
+.badge.enriched {{ background: rgba(0,184,148,0.15); color: var(--green); font-size: 10px; }}
+.badge.has-email {{ background: rgba(253,203,110,0.15); color: var(--yellow); font-size: 10px; }}
+.badge.starred {{ background: rgba(253,203,110,0.2); color: var(--yellow); font-size: 10px; }}
+.badge.tag {{ background: rgba(0,206,209,0.15); color: #00ced1; font-size: 10px; }}
+.store-card.removed {{ opacity: 0.35; text-decoration: line-through; }}
 .rating {{ display: flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 14px; }}
 .rating .stars {{ color: var(--yellow); font-size: 12px; }}
 .rating .num {{ font-weight: 700; }}
@@ -241,12 +258,195 @@ select:focus {{ border-color: var(--accent); }}
   font-weight: 600; transition: all 0.15s;
 }}
 .state-nav a:hover {{ border-color: var(--accent); color: var(--accent2); }}
+.state-nav a.active-tag {{ border-color: #00ced1; color: #00ced1; background: rgba(0,206,209,0.1); }}
 
-@media (max-width: 900px) {{
+/* ── Selection toolbar ── */
+.toolbar {{
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+  background: var(--surface); border-top: 2px solid var(--accent);
+  padding: 12px 24px; display: none; align-items: center; gap: 16px;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
+}}
+.toolbar.visible {{ display: flex; }}
+.toolbar .sel-count {{ font-weight: 700; font-size: 15px; color: var(--accent2); min-width: 100px; }}
+.toolbar button {{
+  padding: 8px 18px; border-radius: 8px; border: none; font-size: 13px;
+  font-weight: 600; cursor: pointer; transition: all 0.15s;
+}}
+.toolbar .btn-secondary {{
+  background: var(--surface2); color: var(--text); border: 1px solid var(--border);
+}}
+.toolbar .btn-secondary:hover {{ border-color: var(--accent); }}
+.toolbar .btn-primary {{
+  background: var(--accent); color: white;
+}}
+.toolbar .btn-primary:hover {{ background: var(--accent2); }}
+.toolbar .btn-green {{
+  background: var(--green); color: white;
+}}
+.toolbar .btn-green:hover {{ opacity: 0.85; }}
+.toolbar .spacer {{ flex: 1; }}
+
+/* ── Modal ── */
+.modal-overlay {{
+  position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.6);
+  display: none; align-items: center; justify-content: center;
+}}
+.modal-overlay.visible {{ display: flex; }}
+.modal {{
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  width: 90%; max-width: 700px; max-height: 80vh; display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}}
+.modal-header {{
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px; border-bottom: 1px solid var(--border);
+}}
+.modal-header h3 {{ font-size: 18px; font-weight: 700; }}
+.modal-close {{
+  background: none; border: none; color: var(--text2); font-size: 24px;
+  cursor: pointer; padding: 4px 8px; border-radius: 6px;
+}}
+.modal-close:hover {{ background: var(--surface2); color: var(--text); }}
+.modal-body {{ padding: 20px 24px; overflow-y: auto; flex: 1; }}
+.modal-footer {{
+  padding: 16px 24px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+}}
+
+/* Progress bar */
+.progress-bar {{ width: 100%; height: 8px; background: var(--surface2); border-radius: 4px; margin-bottom: 16px; overflow: hidden; }}
+.progress-fill {{ height: 100%; background: linear-gradient(90deg, var(--accent), var(--green)); border-radius: 4px; transition: width 0.3s; width: 0%; }}
+
+/* Log entries */
+.log-entry {{ display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; border-bottom: 1px solid rgba(46,51,69,0.3); }}
+.log-entry:last-child {{ border-bottom: none; }}
+.log-status {{ font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; white-space: nowrap; }}
+.log-status.success {{ background: rgba(0,184,148,0.15); color: var(--green); }}
+.log-status.cached {{ background: rgba(108,92,231,0.15); color: var(--accent2); }}
+.log-status.partial {{ background: rgba(253,203,110,0.15); color: var(--yellow); }}
+.log-status.error {{ background: rgba(225,112,85,0.15); color: var(--orange); }}
+.log-status.timeout {{ background: rgba(225,112,85,0.15); color: var(--orange); }}
+.log-status.scraping {{ background: rgba(108,92,231,0.15); color: var(--accent2); }}
+.log-status.chain_skip {{ background: rgba(147,152,173,0.15); color: var(--text2); }}
+.log-status.no_website {{ background: rgba(147,152,173,0.15); color: var(--text2); }}
+.log-name {{ flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+.log-detail {{ color: var(--text2); font-size: 12px; white-space: nowrap; }}
+
+/* ── Detail modal ── */
+.detail-overlay {{
+  position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,0.7);
+  display: none; align-items: center; justify-content: center;
+  padding: 20px;
+}}
+.detail-overlay.visible {{ display: flex; }}
+.detail-modal {{
+  background: var(--bg); border: 1px solid var(--border); border-radius: 16px;
+  width: 95%; max-width: 960px; max-height: 90vh; display: flex; flex-direction: column;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+}}
+.detail-header {{
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 28px; border-bottom: 1px solid var(--border);
+  background: var(--surface); border-radius: 16px 16px 0 0;
+}}
+.detail-header h2 {{ font-size: 20px; font-weight: 700; flex: 1; }}
+.detail-header .detail-badges {{ display: flex; gap: 6px; margin-left: 12px; }}
+.detail-close {{
+  background: none; border: none; color: var(--text2); font-size: 28px;
+  cursor: pointer; padding: 4px 10px; border-radius: 8px; margin-left: 12px;
+}}
+.detail-close:hover {{ background: var(--surface2); color: var(--text); }}
+.detail-body {{ display: flex; gap: 0; overflow: hidden; flex: 1; min-height: 0; }}
+.detail-left {{
+  flex: 0 0 380px; border-right: 1px solid var(--border);
+  overflow-y: auto; background: var(--surface);
+}}
+.detail-right {{ flex: 1; overflow-y: auto; padding: 24px 28px; }}
+.detail-images {{
+  display: grid; grid-template-columns: 1fr 1fr; gap: 2px;
+}}
+.detail-images img {{
+  width: 100%; height: 140px; object-fit: cover; cursor: pointer;
+  transition: opacity 0.2s; background: var(--surface2);
+}}
+.detail-images img:first-child {{
+  grid-column: 1 / -1; height: 220px;
+}}
+.detail-images img:hover {{ opacity: 0.85; }}
+.detail-images .img-placeholder {{
+  grid-column: 1 / -1; padding: 60px 20px; text-align: center;
+  color: var(--text2); font-size: 14px; background: var(--surface2);
+}}
+.detail-preview {{
+  border-top: 1px solid var(--border);
+}}
+.detail-preview iframe {{
+  width: 100%; height: 240px; border: none; background: white;
+}}
+.detail-preview-label {{
+  padding: 10px 16px; font-size: 11px; color: var(--text2);
+  text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+  display: flex; align-items: center; justify-content: space-between;
+}}
+.detail-preview-label a {{
+  color: var(--accent2); text-decoration: none; font-size: 12px;
+  text-transform: none; letter-spacing: 0; font-weight: 500;
+}}
+.detail-preview-label a:hover {{ color: var(--text); }}
+.detail-section {{ margin-bottom: 24px; }}
+.detail-section h4 {{
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--text2); margin-bottom: 10px; font-weight: 600;
+}}
+.detail-row {{
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 6px 0; font-size: 14px;
+}}
+.detail-row .label {{ color: var(--text2); min-width: 100px; font-size: 13px; flex-shrink: 0; }}
+.detail-row .value {{ color: var(--text); word-break: break-word; }}
+.detail-row .value a {{ color: var(--accent2); text-decoration: none; }}
+.detail-row .value a:hover {{ text-decoration: underline; }}
+.social-links {{ display: flex; flex-wrap: wrap; gap: 8px; }}
+.social-link {{
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--accent2); text-decoration: none; font-size: 13px;
+  font-weight: 500; transition: all 0.15s;
+}}
+.social-link:hover {{ border-color: var(--accent); background: var(--surface2); }}
+.brand-tags {{ display: flex; flex-wrap: wrap; gap: 6px; }}
+.brand-tag {{
+  padding: 4px 12px; background: rgba(108,92,231,0.1); border: 1px solid rgba(108,92,231,0.2);
+  border-radius: 6px; font-size: 12px; font-weight: 500; color: var(--accent2);
+}}
+.detail-loading {{
+  display: flex; align-items: center; justify-content: center;
+  padding: 80px 20px; color: var(--text2); font-size: 15px; gap: 12px;
+}}
+.detail-loading .spinner {{
+  width: 20px; height: 20px; border: 2px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}}
+@keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+.detail-actions {{
+  display: flex; gap: 10px; flex-wrap: wrap; padding-top: 8px;
+}}
+.detail-actions button, .detail-actions a {{
+  padding: 8px 18px; border-radius: 8px; border: none; font-size: 13px;
+  font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex;
+  align-items: center; gap: 6px; transition: all 0.15s;
+}}
+
+@media (max-width: 600px) {{
   .controls {{ flex-direction: column; }}
   .store-card {{ grid-template-columns: 1fr; gap: 8px; }}
   .contact {{ align-items: flex-start; }}
   .state-header .meta {{ display: none; }}
+  .toolbar {{ flex-wrap: wrap; }}
+  .detail-body {{ flex-direction: column; }}
+  .detail-left {{ flex: none; max-height: 300px; border-right: none; border-bottom: 1px solid var(--border); }}
 }}
 </style>
 </head>
@@ -289,6 +489,7 @@ select:focus {{ border-color: var(--accent); }}
   </div>
 
   <div class="state-nav" id="stateNav"></div>
+  <div class="state-nav" id="tagNav" style="padding-bottom:16px;"></div>
   <div id="content"></div>
   <div class="empty" id="empty" style="display:none;">
     <div style="font-size:48px;margin-bottom:16px;">&#128270;</div>
@@ -297,10 +498,67 @@ select:focus {{ border-color: var(--accent); }}
   </div>
 </main>
 
+<!-- Selection toolbar -->
+<div class="toolbar" id="toolbar">
+  <span class="sel-count" id="selCount">0 selected</span>
+  <button class="btn-secondary" onclick="selectAllVisible()">Select All Visible</button>
+  <button class="btn-secondary" onclick="clearSelection()">Clear</button>
+  <button class="btn-secondary" onclick="starSelected()" style="color:var(--yellow);">&#9733; Star</button>
+  <button class="btn-secondary" onclick="tagSelected()" style="color:#00ced1;">Tag</button>
+  <button class="btn-secondary" onclick="removeSelected()" style="color:var(--orange);">Remove</button>
+  <span class="spacer"></span>
+  <button class="btn-primary" onclick="enrichSelected()">Enrich Selected</button>
+  <button class="btn-green" onclick="exportSelected()">Export to Airtable</button>
+</div>
+
+<!-- Enrichment modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalTitle">Enrichment Progress</h3>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="modalBody">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div id="modalLog"></div>
+    </div>
+    <div class="modal-footer">
+      <span id="modalStatus" style="color:var(--text2);font-size:13px;"></span>
+      <span class="spacer" style="flex:1;"></span>
+      <button class="btn-secondary" id="modalCloseBtn" onclick="closeModal()" style="display:none;">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Store detail modal -->
+<div class="detail-overlay" id="detailOverlay" onclick="if(event.target===this)closeDetail()">
+  <div class="detail-modal">
+    <div class="detail-header">
+      <h2 id="detailName"></h2>
+      <div class="detail-badges" id="detailBadges"></div>
+      <button class="detail-close" onclick="closeDetail()">&times;</button>
+    </div>
+    <div class="detail-body">
+      <div class="detail-left" id="detailLeft"></div>
+      <div class="detail-right" id="detailRight"></div>
+    </div>
+  </div>
+</div>
+
 <script>
 const DATA = {data_json};
 
 const US_STATES = {json.dumps(US_STATES)};
+
+// ── Selection state ──────────────────────────────────────────────────────
+const selected = new Set();
+const starred = new Set();
+const removed = new Set();
+const storeTags = {{}};  // idx -> Set of tags
+let activeTag = '';  // current tag filter
+const ENRICHMENT = {{}};  // idx -> enrichment data
+const ENRICHMENT_STATUS = {{}};  // idx -> {{status, email_count, has_socials, brand_count}}
+let lastVisibleIndices = [];
 
 function init() {{
   renderStats();
@@ -308,6 +566,50 @@ function init() {{
   document.getElementById('search').addEventListener('input', debounce(applyFilters, 200));
   document.getElementById('typeFilter').addEventListener('change', () => {{ syncActiveCard(); applyFilters(); }});
   document.getElementById('sortSelect').addEventListener('change', applyFilters);
+  loadEnrichmentStatus();
+  loadTags();
+}}
+
+async function loadTags() {{
+  try {{
+    const resp = await fetch('/api/tags');
+    if (resp.ok) {{
+      const data = await resp.json();
+      Object.entries(data).forEach(([idx, tags]) => {{
+        storeTags[parseInt(idx)] = new Set(tags);
+      }});
+      applyFilters();
+    }}
+  }} catch(e) {{}}
+}}
+
+async function saveTags() {{
+  const out = {{}};
+  Object.entries(storeTags).forEach(([idx, tags]) => {{
+    if (tags.size > 0) out[idx] = Array.from(tags);
+  }});
+  try {{
+    await fetch('/api/tags', {{
+      method: 'POST',
+      headers: {{'Content-Type': 'application/json'}},
+      body: JSON.stringify({{tags: out}}),
+    }});
+  }} catch(e) {{}}
+}}
+
+async function loadEnrichmentStatus() {{
+  try {{
+    const resp = await fetch('/api/enrichment-status');
+    if (resp.ok) {{
+      const data = await resp.json();
+      Object.entries(data).forEach(([idx, info]) => {{
+        ENRICHMENT_STATUS[parseInt(idx)] = info;
+      }});
+      applyFilters();  // re-render with badges
+    }}
+  }} catch(e) {{
+    // Not running via server.py, that's fine
+  }}
 }}
 
 function renderStats() {{
@@ -320,6 +622,7 @@ function renderStats() {{
   const general = DATA.filter(d => d.store_type === 'general_bike_shop').length;
   const states = new Set(DATA.map(d => d.state)).size;
   const chains = new Set(DATA.filter(d => d.chain).map(d => d.chain)).size;
+  const withEmail = DATA.filter(d => d.email).length;
   document.getElementById('stats').innerHTML = `
     <div class="stat-card" data-type="" onclick="filterByType(this)"><div class="label">Total Stores</div><div class="value accent">${{total.toLocaleString()}}</div></div>
     <div class="stat-card" data-type="dedicated_ebike" onclick="filterByType(this)"><div class="label">E-Bike Specialists</div><div class="value green">${{dedicated}}</div></div>
@@ -327,6 +630,7 @@ function renderStats() {{
     <div class="stat-card" data-type="general_powersports" onclick="filterByType(this)"><div class="label">Powersports</div><div class="value" style="color:#ff6b6b">${{powersports}}</div></div>
     <div class="stat-card" data-type="general_bike_shop" onclick="filterByType(this)"><div class="label">General Bike</div><div class="value green">${{general}}</div></div>
     <div class="stat-card" data-type="" onclick="filterByType(this)"><div class="label">States</div><div class="value">${{states}}</div></div>
+    <div class="stat-card" data-type="" onclick="filterByType(this)"><div class="label">Have Email</div><div class="value yellow">${{withEmail}}</div></div>
   `;
 }}
 
@@ -335,14 +639,37 @@ function applyFilters() {{
   const type = document.getElementById('typeFilter').value;
   const sort = document.getElementById('sortSelect').value;
 
+  // Build tag nav from all tagged stores
+  const allTags = {{}};
+  Object.entries(storeTags).forEach(([idx, tags]) => {{
+    tags.forEach(t => {{ allTags[t] = (allTags[t] || 0) + 1; }});
+  }});
+  const tagNav = document.getElementById('tagNav');
+  if (Object.keys(allTags).length > 0) {{
+    tagNav.innerHTML = Object.entries(allTags)
+      .sort((a,b) => b[1] - a[1])
+      .map(([tag, count]) => `<a href="#" class="${{activeTag === tag ? 'active-tag' : ''}}" onclick="filterByTag('${{tag}}');return false;">${{tag}} (${{count}})</a>`)
+      .join('');
+  }} else {{
+    tagNav.innerHTML = '';
+  }}
+
   let filtered = DATA.filter(d => {{
     if (type && d.store_type !== type) return false;
+    if (activeTag) {{
+      const tags = storeTags[d._idx];
+      if (!tags || !tags.has(activeTag)) return false;
+    }}
     if (q) {{
-      const hay = `${{d.name}} ${{d.city}} ${{d.state}} ${{d.address}} ${{d.chain||''}} ${{d.email||''}} ${{US_STATES[d.state]||''}}`.toLowerCase();
+      const tagStr = storeTags[d._idx] ? Array.from(storeTags[d._idx]).join(' ') : '';
+      const hay = `${{d.name}} ${{d.city}} ${{d.state}} ${{d.address}} ${{d.chain||''}} ${{d.email||''}} ${{US_STATES[d.state]||''}} ${{tagStr}}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }}
     return true;
   }});
+
+  // Track visible indices for Select All Visible
+  lastVisibleIndices = filtered.map(d => d._idx);
 
   // Sort within groups
   const sortFn = (a, b) => {{
@@ -444,6 +771,7 @@ function applyFilters() {{
   }});
 
   content.innerHTML = html;
+  updateToolbar();
 }}
 
 function renderStore(d) {{
@@ -462,9 +790,29 @@ function renderStore(d) {{
   const webClean = d.website ? d.website.replace(/^https?:\\/\\//, '').replace(/\\/+$/, '').split('?')[0].split('#')[0] : '';
   const webHref = d.website && !d.website.startsWith('http') ? 'https://' + d.website : d.website;
 
-  return `<div class="store-card">
+  const isChecked = selected.has(d._idx) ? 'checked' : '';
+  const selClass = selected.has(d._idx) ? ' selected' : '';
+
+  // Enrichment/email badges
+  let extraBadges = '';
+  if (d.email) extraBadges += ' <span class="badge has-email">email</span>';
+  const es = ENRICHMENT_STATUS[d._idx];
+  if (es) {{
+    extraBadges += ' <span class="badge enriched">enriched</span>';
+  }}
+
+  const isStarred = starred.has(d._idx);
+  const isRemoved = removed.has(d._idx);
+  const removedClass = isRemoved ? ' removed' : '';
+  if (isStarred) extraBadges += ' <span class="badge starred">&#9733;</span>';
+  const tags = storeTags[d._idx];
+  if (tags && tags.size > 0) {{
+    tags.forEach(t => {{ extraBadges += ` <span class="badge tag">${{esc(t)}}</span>`; }});
+  }}
+
+  return `<div class="store-card${{selClass}}${{removedClass}}" data-idx="${{d._idx}}" onclick="onCardClick(event, ${{d._idx}})" ondblclick="onCardDblClick(event, ${{d._idx}})">
     <div>
-      <div class="store-name">${{d.website ? `<a href="${{esc(webHref)}}" target="_blank" rel="noopener">${{esc(d.name)}}</a>` : esc(d.name)}}</div>
+      <div class="store-name">${{esc(d.name)}}${{extraBadges}}</div>
       <div class="store-address">${{esc(d.address)}}</div>
     </div>
     <div>${{badge}}</div>
@@ -481,6 +829,242 @@ function renderStore(d) {{
   </div>`;
 }}
 
+// ── Selection functions ──────────────────────────────────────────────────
+function toggleSelect(idx, checked) {{
+  if (checked) {{
+    selected.add(idx);
+  }} else {{
+    selected.delete(idx);
+  }}
+  // Update card visual
+  const card = document.querySelector(`.store-card[data-idx="${{idx}}"]`);
+  if (card) card.classList.toggle('selected', checked);
+  updateToolbar();
+}}
+
+function selectAllVisible() {{
+  lastVisibleIndices.forEach(idx => selected.add(idx));
+  document.querySelectorAll('.store-card').forEach(card => card.classList.add('selected'));
+  updateToolbar();
+}}
+
+function clearSelection() {{
+  selected.clear();
+  document.querySelectorAll('.store-card').forEach(card => card.classList.remove('selected'));
+  updateToolbar();
+}}
+
+function updateToolbar() {{
+  const tb = document.getElementById('toolbar');
+  const count = selected.size;
+  if (count > 0) {{
+    tb.classList.add('visible');
+    document.getElementById('selCount').textContent = `${{count}} selected`;
+  }} else {{
+    tb.classList.remove('visible');
+  }}
+}}
+
+// ── Enrichment ──────────────────────────────────────────────────────────
+async function enrichSelected() {{
+  const indices = Array.from(selected);
+  if (indices.length === 0) return;
+
+  if (indices.length > 100) {{
+    if (!confirm(`You're about to enrich ${{indices.length}} stores. This may take a while. Continue?`)) return;
+  }}
+
+  openModal('Enrichment Progress');
+  const log = document.getElementById('modalLog');
+  const fill = document.getElementById('progressFill');
+  const status = document.getElementById('modalStatus');
+  log.innerHTML = '';
+  fill.style.width = '0%';
+  status.textContent = 'Starting...';
+  document.getElementById('modalCloseBtn').style.display = 'none';
+
+  try {{
+    const resp = await fetch('/api/enrich', {{
+      method: 'POST',
+      headers: {{'Content-Type': 'application/json'}},
+      body: JSON.stringify({{store_indices: indices}}),
+    }});
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {{
+      const {{done, value}} = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, {{stream: true}});
+
+      // Parse SSE lines
+      const lines = buffer.split('\\n');
+      buffer = lines.pop();  // keep incomplete line
+
+      for (const line of lines) {{
+        if (line.startsWith('data: ')) {{
+          try {{
+            const data = JSON.parse(line.slice(6));
+            if (data.total) {{
+              const pct = Math.round((data.progress / data.total) * 100);
+              fill.style.width = pct + '%';
+              status.textContent = `${{data.progress}} / ${{data.total}}`;
+            }}
+            if (data.name && data.status !== 'scraping') {{
+              // Store enrichment data
+              if (data.data) {{
+                ENRICHMENT[data.index] = data.data;
+                ENRICHMENT_STATUS[data.index] = {{
+                  status: data.data.status,
+                  email_count: (data.data.emails || []).length,
+                  has_socials: !!(data.data.instagram || data.data.facebook || data.data.twitter),
+                  brand_count: (data.data.brands_carried || []).length,
+                }};
+              }}
+              // Add log entry
+              const detail = data.data ?
+                `${{(data.data.emails||[]).length}} emails, ${{(data.data.brands_carried||[]).length}} brands, ${{data.data.pages_scraped||0}} pages` :
+                (data.message || '');
+              log.innerHTML += `<div class="log-entry">
+                <span class="log-status ${{data.status}}">${{data.status}}</span>
+                <span class="log-name">${{esc(data.name)}}</span>
+                <span class="log-detail">${{detail}}</span>
+              </div>`;
+              log.scrollTop = log.scrollHeight;
+            }}
+          }} catch(e) {{}}
+        }}
+      }}
+    }}
+
+    status.textContent = 'Enrichment complete!';
+  }} catch(e) {{
+    status.textContent = 'Error: ' + e.message;
+  }}
+
+  document.getElementById('modalCloseBtn').style.display = 'block';
+  applyFilters();  // re-render with enrichment badges
+}}
+
+// ── Airtable export ──────────────────────────────────────────────────────
+async function exportSelected() {{
+  const indices = Array.from(selected);
+  if (indices.length === 0) return;
+
+  if (!confirm(`Export ${{indices.length}} stores to Airtable?`)) return;
+
+  openModal('Airtable Export');
+  const log = document.getElementById('modalLog');
+  const fill = document.getElementById('progressFill');
+  const status = document.getElementById('modalStatus');
+  log.innerHTML = '<div class="log-entry"><span class="log-status scraping">pushing</span><span class="log-name">Sending to Airtable...</span></div>';
+  fill.style.width = '50%';
+  status.textContent = 'Exporting...';
+  document.getElementById('modalCloseBtn').style.display = 'none';
+
+  try {{
+    const resp = await fetch('/api/export-airtable', {{
+      method: 'POST',
+      headers: {{'Content-Type': 'application/json'}},
+      body: JSON.stringify({{store_indices: indices}}),
+    }});
+    const data = await resp.json();
+    fill.style.width = '100%';
+
+    if (data.success) {{
+      status.textContent = 'Export complete!';
+      log.innerHTML = `<div class="log-entry">
+        <span class="log-status success">done</span>
+        <span class="log-name">Created: ${{data.created}}, Updated: ${{data.updated}}, Errors: ${{data.errors}}</span>
+      </div>`;
+    }} else {{
+      status.textContent = 'Export failed';
+      log.innerHTML = `<div class="log-entry">
+        <span class="log-status error">error</span>
+        <span class="log-name">${{esc(data.error || 'Unknown error')}}</span>
+      </div>`;
+    }}
+  }} catch(e) {{
+    fill.style.width = '100%';
+    status.textContent = 'Error: ' + e.message;
+    log.innerHTML = `<div class="log-entry"><span class="log-status error">error</span><span class="log-name">${{esc(e.message)}}</span></div>`;
+  }}
+
+  document.getElementById('modalCloseBtn').style.display = 'block';
+}}
+
+// ── Modal helpers ────────────────────────────────────────────────────────
+function openModal(title) {{
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalOverlay').classList.add('visible');
+}}
+
+function closeModal() {{
+  document.getElementById('modalOverlay').classList.remove('visible');
+}}
+
+// ── Row click handler ────────────────────────────────────────────────────
+function onCardClick(event, idx) {{
+  const tag = event.target.tagName.toLowerCase();
+  if (tag === 'input' || tag === 'a' || tag === 'button') return;
+  // Single click = toggle select
+  const isNowSelected = !selected.has(idx);
+  toggleSelect(idx, isNowSelected);
+  const card = document.querySelector(`.store-card[data-idx="${{idx}}"]`);
+  if (card) card.classList.toggle('selected', isNowSelected);
+}}
+
+function onCardDblClick(event, idx) {{
+  const tag = event.target.tagName.toLowerCase();
+  if (tag === 'input' || tag === 'a' || tag === 'button') return;
+  openDetail(idx);
+}}
+
+function toggleStar(idx) {{
+  if (starred.has(idx)) starred.delete(idx);
+  else starred.add(idx);
+  applyFilters();
+}}
+
+function toggleRemove(idx) {{
+  if (removed.has(idx)) removed.delete(idx);
+  else removed.add(idx);
+  applyFilters();
+}}
+
+function starSelected() {{
+  selected.forEach(idx => starred.add(idx));
+  applyFilters();
+}}
+
+function removeSelected() {{
+  selected.forEach(idx => removed.add(idx));
+  clearSelection();
+}}
+
+function addTag(idx, tag) {{
+  tag = tag.trim();
+  if (!tag) return;
+  if (!storeTags[idx]) storeTags[idx] = new Set();
+  storeTags[idx].add(tag);
+  saveTags();
+}}
+
+function removeTag(idx, tag) {{
+  if (storeTags[idx]) storeTags[idx].delete(tag);
+  saveTags();
+}}
+
+function tagSelected() {{
+  const tag = prompt('Enter tag for selected stores:');
+  if (!tag || !tag.trim()) return;
+  selected.forEach(idx => addTag(idx, tag.trim()));
+  applyFilters();
+}}
+
+// ── Toggle functions ─────────────────────────────────────────────────────
 function toggleState(st) {{
   const body = document.getElementById('body-' + st);
   const header = body.previousElementSibling;
@@ -509,10 +1093,14 @@ function toggleIndep(id) {{
   arrow.classList.toggle('collapsed');
 }}
 
+function filterByTag(tag) {{
+  activeTag = (activeTag === tag) ? '' : tag;
+  applyFilters();
+}}
+
 function filterByType(el) {{
   const type = el.dataset.type;
   const sel = document.getElementById('typeFilter');
-  // Toggle: if already active, clear filter
   if (sel.value === type && type !== '') {{
     sel.value = '';
   }} else {{
@@ -534,6 +1122,233 @@ function debounce(fn, ms) {{
   return (...a) => {{ clearTimeout(t); t = setTimeout(() => fn(...a), ms); }};
 }}
 
+// ── Store detail modal ──────────────────────────────────────────────────
+let detailCurrentIdx = null;
+
+async function openDetail(idx) {{
+  detailCurrentIdx = idx;
+  const d = DATA[idx];
+  if (!d) return;
+
+  const overlay = document.getElementById('detailOverlay');
+  const left = document.getElementById('detailLeft');
+  const right = document.getElementById('detailRight');
+  const nameEl = document.getElementById('detailName');
+  const badgesEl = document.getElementById('detailBadges');
+
+  // Set header
+  nameEl.textContent = d.name;
+  const badgeMap = {{
+    'dedicated_ebike': ['ebike', 'E-Bike Specialist'],
+    'general_bike_shop': ['general', 'General Bike'],
+    'electric_motorcycle': ['motorcycle', 'Electric Motorcycle'],
+    'electric_scooter': ['scooter', 'Scooter / Moped'],
+    'electric_last_mile': ['lastmile', 'Last Mile / Cargo'],
+    'general_powersports': ['powersports', 'Powersports'],
+  }};
+  const [bc, bl] = badgeMap[d.store_type] || ['unknown', 'Other'];
+  badgesEl.innerHTML = `<span class="badge ${{bc}}">${{bl}}</span>`;
+
+  // Loading state
+  left.innerHTML = '<div class="detail-loading"><div class="spinner"></div>Loading...</div>';
+  right.innerHTML = '<div class="detail-loading"><div class="spinner"></div>Enriching store data...</div>';
+  overlay.classList.add('visible');
+
+  // Fetch detail (auto-enriches if needed)
+  try {{
+    const resp = await fetch(`/api/store/${{idx}}`);
+    if (!resp.ok) throw new Error('Failed to load');
+    const data = await resp.json();
+    const store = data.store;
+    const enrich = data.enrichment || {{}};
+
+    // Store in global cache
+    if (enrich.status) {{
+      ENRICHMENT[idx] = enrich;
+      ENRICHMENT_STATUS[idx] = {{
+        status: enrich.status,
+        email_count: (enrich.emails || []).length,
+        has_socials: !!(enrich.instagram || enrich.facebook || enrich.twitter),
+        brand_count: (enrich.brands_carried || []).length,
+      }};
+    }}
+
+    renderDetailLeft(store, enrich);
+    renderDetailRight(store, enrich);
+  }} catch(e) {{
+    right.innerHTML = `<div class="detail-loading" style="color:var(--orange)">Could not load store details. Make sure server.py is running.</div>`;
+    // Still render basic info on left
+    renderDetailLeftBasic(d);
+  }}
+}}
+
+function renderDetailLeft(store, enrich) {{
+  const left = document.getElementById('detailLeft');
+  const images = enrich.images || [];
+  const webHref = store.website && !store.website.startsWith('http') ? 'https://' + store.website : store.website;
+  let html = '';
+
+  // Images gallery
+  if (images.length > 0) {{
+    html += '<div class="detail-images">';
+    images.forEach((img, i) => {{
+      html += `<img src="${{esc(img)}}" alt="Store photo" loading="lazy" onerror="this.style.display='none'" onclick="window.open(this.src,'_blank')">`;
+    }});
+    html += '</div>';
+  }} else {{
+    html += '<div class="detail-images"><div class="img-placeholder">No images found on website</div></div>';
+  }}
+
+  // Website preview iframe
+  if (webHref) {{
+    html += `<div class="detail-preview">
+      <div class="detail-preview-label">
+        Website Preview
+        <a href="${{esc(webHref)}}" target="_blank" rel="noopener">Open in new tab &#8599;</a>
+      </div>
+      <iframe src="${{esc(webHref)}}" sandbox="allow-scripts allow-same-origin" loading="lazy"></iframe>
+    </div>`;
+  }}
+
+  left.innerHTML = html;
+}}
+
+function renderDetailLeftBasic(store) {{
+  const left = document.getElementById('detailLeft');
+  const webHref = store.website && !store.website.startsWith('http') ? 'https://' + store.website : store.website;
+  let html = '<div class="detail-images"><div class="img-placeholder">Enrich this store to see images</div></div>';
+  if (webHref) {{
+    html += `<div class="detail-preview">
+      <div class="detail-preview-label">
+        Website Preview
+        <a href="${{esc(webHref)}}" target="_blank" rel="noopener">Open in new tab &#8599;</a>
+      </div>
+      <iframe src="${{esc(webHref)}}" sandbox="allow-scripts allow-same-origin" loading="lazy"></iframe>
+    </div>`;
+  }}
+  left.innerHTML = html;
+}}
+
+function renderDetailRight(store, enrich) {{
+  const right = document.getElementById('detailRight');
+  const webHref = store.website && !store.website.startsWith('http') ? 'https://' + store.website : store.website;
+  let html = '';
+
+  // Description
+  if (enrich.description) {{
+    html += `<div class="detail-section">
+      <h4>About</h4>
+      <p style="font-size:14px;color:var(--text2);line-height:1.6;">${{esc(enrich.description)}}</p>
+    </div>`;
+  }}
+
+  // Basic info
+  html += '<div class="detail-section"><h4>Store Info</h4>';
+  html += `<div class="detail-row"><span class="label">Address</span><span class="value">${{esc(store.address)}}</span></div>`;
+  html += `<div class="detail-row"><span class="label">City / State</span><span class="value">${{esc(store.city)}}, ${{store.state}}</span></div>`;
+  if (store.phone) html += `<div class="detail-row"><span class="label">Phone</span><span class="value"><a href="tel:${{store.phone}}">${{esc(store.phone)}}</a></span></div>`;
+  if (webHref) html += `<div class="detail-row"><span class="label">Website</span><span class="value"><a href="${{esc(webHref)}}" target="_blank" rel="noopener">${{esc(webHref.replace(/^https?:\\/\\//, '').split('?')[0])}}</a></span></div>`;
+  html += `<div class="detail-row"><span class="label">Rating</span><span class="value">${{store.rating}} &#9733; (${{store.review_count.toLocaleString()}} reviews) &mdash; Score: ${{store.score}}</span></div>`;
+  if (store.chain) html += `<div class="detail-row"><span class="label">Chain</span><span class="value">${{esc(store.chain)}}</span></div>`;
+  html += '</div>';
+
+  // Contact / Emails
+  const allEmails = [];
+  if (store.email) allEmails.push(store.email.split(';')[0].trim());
+  (enrich.emails || []).forEach(e => {{ if (!allEmails.includes(e)) allEmails.push(e); }});
+  if (allEmails.length > 0 || enrich.owner_contact) {{
+    html += '<div class="detail-section"><h4>Contact</h4>';
+    allEmails.forEach(email => {{
+      html += `<div class="detail-row"><span class="label">Email</span><span class="value"><a href="mailto:${{email}}">${{esc(email)}}</a></span></div>`;
+    }});
+    if (enrich.owner_contact) html += `<div class="detail-row"><span class="label">Owner</span><span class="value">${{esc(enrich.owner_contact)}}</span></div>`;
+    html += '</div>';
+  }}
+
+  // Social media
+  const socials = [];
+  if (enrich.instagram) socials.push(['Instagram', enrich.instagram, 'IG']);
+  if (enrich.facebook) socials.push(['Facebook', enrich.facebook, 'FB']);
+  if (enrich.twitter) socials.push(['Twitter/X', enrich.twitter, 'X']);
+  if (enrich.youtube) socials.push(['YouTube', enrich.youtube, 'YT']);
+  if (enrich.tiktok) socials.push(['TikTok', enrich.tiktok, 'TT']);
+  if (enrich.linkedin) socials.push(['LinkedIn', enrich.linkedin, 'LI']);
+  if (socials.length > 0) {{
+    html += '<div class="detail-section"><h4>Social Media</h4><div class="social-links">';
+    socials.forEach(([name, url, abbr]) => {{
+      html += `<a class="social-link" href="${{esc(url)}}" target="_blank" rel="noopener">${{abbr}} ${{name}}</a>`;
+    }});
+    html += '</div></div>';
+  }}
+
+  // Brands
+  if ((enrich.brands_carried || []).length > 0) {{
+    html += '<div class="detail-section"><h4>Brands Carried</h4><div class="brand-tags">';
+    enrich.brands_carried.forEach(b => {{
+      html += `<span class="brand-tag">${{esc(b)}}</span>`;
+    }});
+    html += '</div></div>';
+  }}
+
+  // Hours
+  if (enrich.store_hours) {{
+    html += `<div class="detail-section"><h4>Store Hours</h4>
+      <p style="font-size:13px;color:var(--text);white-space:pre-line;">${{esc(enrich.store_hours.replace(/; /g, '\\n'))}}</p>
+    </div>`;
+  }}
+
+  // Enrichment status
+  html += `<div class="detail-section"><h4>Enrichment</h4>
+    <div class="detail-row"><span class="label">Status</span><span class="value"><span class="log-status ${{enrich.status || 'unknown'}}">${{enrich.status || 'not enriched'}}</span></span></div>
+    <div class="detail-row"><span class="label">Pages scraped</span><span class="value">${{enrich.pages_scraped || 0}}</span></div>
+  </div>`;
+
+  // Tags section
+  const currentTags = storeTags[detailCurrentIdx] || new Set();
+  html += `<div class="detail-section"><h4>Tags</h4>`;
+  if (currentTags.size > 0) {{
+    html += '<div class="brand-tags" style="margin-bottom:10px;">';
+    currentTags.forEach(t => {{
+      html += `<span class="brand-tag" style="background:rgba(0,206,209,0.1);border-color:rgba(0,206,209,0.2);color:#00ced1;cursor:pointer;" onclick="removeTag(${{detailCurrentIdx}},'${{t}}');renderDetailRight(DATA[${{detailCurrentIdx}}],ENRICHMENT[${{detailCurrentIdx}}]||{{}});">${{esc(t)}} &times;</span>`;
+    }});
+    html += '</div>';
+  }}
+  html += `<div style="display:flex;gap:8px;">
+    <input type="text" id="tagInput" placeholder="Add tag..." style="flex:1;padding:6px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;outline:none;" onkeydown="if(event.key==='Enter'){{addTag(${{detailCurrentIdx}},this.value);this.value='';renderDetailRight(DATA[${{detailCurrentIdx}}],ENRICHMENT[${{detailCurrentIdx}}]||{{}});}}">
+    <button class="btn-secondary" style="background:var(--surface);color:#00ced1;border:1px solid var(--border);padding:6px 14px;font-size:13px;border-radius:6px;cursor:pointer;" onclick="const inp=document.getElementById('tagInput');addTag(${{detailCurrentIdx}},inp.value);inp.value='';renderDetailRight(DATA[${{detailCurrentIdx}}],ENRICHMENT[${{detailCurrentIdx}}]||{{}});">Add</button>
+  </div></div>`;
+
+  // Actions
+  const starLabel = starred.has(detailCurrentIdx) ? 'Unstar' : 'Star';
+  const starIcon = starred.has(detailCurrentIdx) ? '&#9733;' : '&#9734;';
+  const removeLabel = removed.has(detailCurrentIdx) ? 'Restore' : 'Remove';
+  html += `<div class="detail-actions">
+    ${{webHref ? `<a href="${{esc(webHref)}}" target="_blank" rel="noopener" class="btn-primary" style="background:var(--accent);color:white;">Visit Website &#8599;</a>` : ''}}
+    <button class="btn-secondary" style="background:var(--surface);color:var(--text);border:1px solid var(--border);" onclick="toggleSelect(${{detailCurrentIdx}},true);closeDetail();">Select for Export</button>
+    <button class="btn-secondary" style="background:var(--surface);color:var(--yellow);border:1px solid var(--border);" onclick="toggleStar(${{detailCurrentIdx}});renderDetailRight(DATA[${{detailCurrentIdx}}],ENRICHMENT[${{detailCurrentIdx}}]||{{}});">${{starIcon}} ${{starLabel}}</button>
+    <button class="btn-secondary" style="background:var(--surface);color:var(--orange);border:1px solid var(--border);" onclick="toggleRemove(${{detailCurrentIdx}});closeDetail();">${{removeLabel}}</button>
+  </div>`;
+
+  right.innerHTML = html;
+}}
+
+function closeDetail() {{
+  document.getElementById('detailOverlay').classList.remove('visible');
+  // Clean up iframe to stop loading
+  const left = document.getElementById('detailLeft');
+  left.querySelectorAll('iframe').forEach(f => f.src = 'about:blank');
+  detailCurrentIdx = null;
+  applyFilters();  // refresh badges
+}}
+
+// Close detail on Escape
+document.addEventListener('keydown', e => {{
+  if (e.key === 'Escape') {{
+    if (document.getElementById('detailOverlay').classList.contains('visible')) closeDetail();
+    else if (document.getElementById('modalOverlay').classList.contains('visible')) closeModal();
+  }}
+}});
+
 init();
 </script>
 </body>
@@ -542,4 +1357,4 @@ init();
 with open('/Users/eddie/ebike-directory/index.html', 'w') as f:
     f.write(html)
 
-print(f"Written: {len(html)} bytes")
+print(f"Written: index.html ({len(html)} bytes)")
