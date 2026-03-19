@@ -93,17 +93,17 @@ html = f'''<!DOCTYPE html>
 <style>
 *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
 :root {{
-  --bg: #171717;
-  --surface: #262626;
-  --surface2: #363636;
-  --border: rgba(255,255,255,0.1);
-  --text: #fafafa;
-  --text2: #a3a3a3;
+  --bg: #ffffff;
+  --surface: #fafafa;
+  --surface2: #f4f4f5;
+  --border: #e5e5e5;
+  --text: #171717;
+  --text2: #737373;
   --accent: #6366f1;
-  --accent2: #818cf8;
-  --green: #22c55e;
-  --yellow: #eab308;
-  --orange: #f97316;
+  --accent2: #4f46e5;
+  --green: #16a34a;
+  --yellow: #ca8a04;
+  --orange: #ea580c;
   --radius: 10px;
 }}
 body {{
@@ -126,7 +126,7 @@ header .container {{ display: flex; align-items: center; justify-content: space-
 /* Stats */
 .stats {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; padding: 24px 0; }}
 .stat-card {{ background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; cursor: pointer; transition: all 0.15s; }}
-.stat-card:hover {{ background: var(--surface2); border-color: rgba(255,255,255,0.15); }}
+.stat-card:hover {{ background: var(--surface2); border-color: rgba(0,0,0,0.08); }}
 .stat-card.active {{ border-color: var(--accent); background: rgba(99,102,241,0.08); }}
 .stat-card .label {{ font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; font-weight: 500; }}
 .stat-card .value {{ font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }}
@@ -143,16 +143,16 @@ header .container {{ display: flex; align-items: center; justify-content: space-
   border: 1px solid var(--border); border-radius: var(--radius); color: var(--text);
   font-size: 14px; outline: none; transition: border-color 0.15s;
 }}
-.search-box input:focus {{ border-color: rgba(255,255,255,0.25); }}
+.search-box input:focus {{ border-color: rgba(0,0,0,0.15); }}
 .search-box input::placeholder {{ color: var(--text2); }}
 select {{
   padding: 9px 32px 9px 12px; background: transparent; border: 1px solid var(--border);
   border-radius: var(--radius); color: var(--text); font-size: 13px; outline: none;
   cursor: pointer; min-width: 140px; -webkit-appearance: none; appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a3a3a3' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 10px center;
 }}
-select:focus {{ border-color: rgba(255,255,255,0.25); }}
+select:focus {{ border-color: rgba(0,0,0,0.15); }}
 .results-count {{ display: flex; align-items: center; padding: 0 4px; color: var(--text2); font-size: 13px; white-space: nowrap; }}
 
 /* State section */
@@ -199,7 +199,7 @@ select:focus {{ border-color: rgba(255,255,255,0.25); }}
   transition: background 0.15s;
   cursor: pointer;
 }}
-.store-card:hover {{ background: rgba(255,255,255,0.03); }}
+.store-card:hover {{ background: rgba(0,0,0,0.02); }}
 .store-card.selected {{ background: rgba(99,102,241,0.08); }}
 .store-card:last-child {{ border-bottom: none; }}
 .store-check {{ width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; vertical-align: middle; margin-right: 6px; }}
@@ -238,10 +238,10 @@ select:focus {{ border-color: rgba(255,255,255,0.25); }}
 .indep-label {{
   padding: 8px 16px; font-size: 11px; color: var(--text2);
   font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;
-  background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border);
+  background: rgba(0,0,0,0.02); border-bottom: 1px solid var(--border);
   display: flex; align-items: center; gap: 8px; transition: background 0.15s;
 }}
-.indep-label:hover {{ background: rgba(255,255,255,0.04); }}
+.indep-label:hover {{ background: rgba(0,0,0,0.03); }}
 .indep-arrow {{ font-size: 10px; transition: transform 0.2s; }}
 .indep-arrow.collapsed {{ transform: rotate(-90deg); }}
 
@@ -258,7 +258,7 @@ select:focus {{ border-color: rgba(255,255,255,0.25); }}
   border-radius: 6px; color: var(--text2); text-decoration: none; font-size: 11px;
   font-weight: 500; transition: all 0.15s;
 }}
-.state-nav a:hover {{ border-color: rgba(255,255,255,0.2); color: var(--text); }}
+.state-nav a:hover {{ border-color: rgba(0,0,0,0.12); color: var(--text); }}
 .state-nav a.active-tag {{ border-color: var(--accent); color: var(--accent2); background: rgba(99,102,241,0.08); }}
 
 /* ── Selection toolbar ── */
@@ -277,7 +277,7 @@ select:focus {{ border-color: rgba(255,255,255,0.25); }}
 .toolbar .btn-secondary {{
   background: transparent; color: var(--text); border: 1px solid var(--border);
 }}
-.toolbar .btn-secondary:hover {{ border-color: rgba(255,255,255,0.2); background: var(--surface2); }}
+.toolbar .btn-secondary:hover {{ border-color: rgba(0,0,0,0.12); background: var(--surface2); }}
 .toolbar .btn-primary {{
   background: var(--accent); color: white;
 }}
@@ -290,7 +290,7 @@ select:focus {{ border-color: rgba(255,255,255,0.25); }}
 
 /* ── Modal ── */
 .modal-overlay {{
-  position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.6);
+  position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.4);
   display: none; align-items: center; justify-content: center;
 }}
 .modal-overlay.visible {{ display: flex; }}
@@ -336,7 +336,7 @@ select:focus {{ border-color: rgba(255,255,255,0.25); }}
 
 /* ── Detail modal ── */
 .detail-overlay {{
-  position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,0.7);
+  position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,0.4);
   display: none; align-items: center; justify-content: center;
   padding: 20px;
 }}
