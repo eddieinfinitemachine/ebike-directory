@@ -1,0 +1,82 @@
+{
+  "Pedego": {
+    "url": "https://www.pedegoelectricbikes.com/dealers/",
+    "type": "html"
+  },
+  "Aventon": {
+    "url": "https://www.aventon.com/pages/test-ride",
+    "type": "auto"
+  },
+  "Rad Power": {
+    "url": "https://www.radpowerbikes.com/pages/locations",
+    "type": "auto"
+  },
+  "Lectric": {
+    "url": "https://www.lectricebikes.com/pages/test-ride-locations",
+    "type": "auto"
+  },
+  "Velotric": {
+    "url": "https://www.velotricbike.com/pages/store-locator",
+    "type": "auto"
+  },
+  "Himiway": {
+    "url": "https://himiwaybike.com/pages/find-himiway-dealers",
+    "type": "auto"
+  },
+  "SUPER73": {
+    "url": "https://super73.com/pages/test-ride",
+    "type": "auto"
+  },
+  "Juiced": {
+    "url": "https://www.juicedbikes.com/pages/test-ride",
+    "type": "auto"
+  },
+  "Ride1Up": {
+    "url": "https://ride1up.com/test-ride/",
+    "type": "auto"
+  },
+  "Blix": {
+    "url": "https://blixbike.com/pages/test-rides",
+    "type": "auto"
+  },
+  "Magicycle": {
+    "url": "https://www.magicyclebike.com/pages/dealer-locator",
+    "type": "auto"
+  },
+  "Ariel Rider": {
+    "url": "https://arielrider.com/pages/dealers",
+    "type": "auto"
+  },
+  "Sur Ron": {
+    "url": "https://surron.com/pages/dealer-locator",
+    "type": "auto"
+  },
+  "Zero Motorcycles": {
+    "url": "https://www.zeromotorcycles.com/find-a-dealer",
+    "type": "auto"
+  },
+  "Tern": {
+    "url": "https://www.ternbicycles.com/us/dealers",
+    "type": "auto"
+  },
+  "Gazelle": {
+    "url": "https://www.gazellebikes.com/en-us/dealer-locator",
+    "type": "auto"
+  },
+  "Haibike": {
+    "url": "https://www.haibike.com/us/dealer-search",
+    "type": "auto"
+  },
+  "Bulls": {
+    "url": "https://www.bullsbikes.com/us/dealer-locator",
+    "type": "auto"
+  },
+  "Benno": {
+    "url": "https://www.bennobikes.com/dealers/",
+    "type": "auto"
+  },
+  "Yuba": {
+    "url": "https://yubabikes.com/dealer-locator/",
+    "type": "auto"
+  }
+}

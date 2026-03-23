@@ -202,6 +202,24 @@ select:focus { border-color: rgba(0,0,0,0.15); }
 .toolbar .btn-green:hover { opacity: 0.85; }
 .toolbar .spacer { flex: 1; }
 
+/* ── Context menu ── */
+.ctx-menu {
+  position: fixed; z-index: 500; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); padding: 4px 0;
+  min-width: 180px; display: none;
+}
+.ctx-menu.visible { display: block; }
+.ctx-menu button {
+  display: block; width: 100%; text-align: left; padding: 8px 16px; border: none;
+  background: none; font-size: 13px; cursor: pointer; color: var(--text);
+  font-family: inherit;
+}
+.ctx-menu button:hover { background: var(--surface2); }
+.ctx-menu .ctx-divider { height: 1px; background: var(--border); margin: 4px 0; }
+.ctx-menu .ctx-label { padding: 6px 16px 2px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text2); font-weight: 600; }
+.ctx-menu .ctx-list-item { color: var(--accent2); }
+.ctx-menu .ctx-list-new { color: var(--text2); font-style: italic; }
+
 /* ── Modal ── */
 .modal-overlay {
   position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.4);
@@ -354,6 +372,65 @@ select:focus { border-color: rgba(0,0,0,0.15); }
   align-items: center; gap: 6px; transition: all 0.15s;
 }
 
+/* ── Dealer Finder ── */
+.dealer-finder-row {
+  display: flex; gap: 10px; padding-bottom: 16px; align-items: stretch;
+}
+.dealer-finder-box {
+  flex: 1; position: relative;
+}
+.dealer-finder-box svg {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--accent); width: 16px; height: 16px;
+}
+.dealer-finder-box input {
+  width: 100%; padding: 9px 12px 9px 36px; background: transparent;
+  border: 1px solid var(--accent); border-radius: var(--radius); color: var(--text);
+  font-size: 14px; outline: none; transition: border-color 0.15s;
+}
+.dealer-finder-box input:focus { border-color: var(--accent2); }
+.dealer-finder-box input::placeholder { color: var(--text2); }
+.btn-find-dealers {
+  padding: 9px 18px; background: var(--accent); color: white; border: none;
+  border-radius: var(--radius); font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: background 0.15s;
+}
+.btn-find-dealers:hover { background: var(--accent2); }
+.btn-find-dealers:disabled { opacity: 0.6; cursor: not-allowed; }
+.dealer-result-card {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  transition: background 0.15s; gap: 12px;
+}
+.dealer-result-card:last-child { border-bottom: none; }
+.dealer-result-card:hover { background: rgba(0,0,0,0.02); }
+.dealer-result-info { flex: 1; min-width: 0; }
+.dealer-result-info .name { font-weight: 500; font-size: 14px; }
+.dealer-result-info .addr { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.dealer-result-info .meta { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.dealer-result-card .badge.existing { background: rgba(34,197,94,0.12); color: var(--green); font-size: 10px; }
+.dealer-finder-status {
+  padding: 20px; text-align: center; color: var(--text2); font-size: 14px;
+}
+.dealer-finder-status .spinner {
+  display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite;
+  margin-right: 8px; vertical-align: middle;
+}
+.dealer-manual-url {
+  padding: 16px; background: var(--surface2); border-radius: var(--radius);
+  margin-top: 12px;
+}
+.dealer-manual-url input {
+  width: 100%; padding: 8px 12px; border: 1px solid var(--border);
+  border-radius: 6px; font-size: 13px; background: transparent;
+  color: var(--text); outline: none; margin-top: 8px;
+}
+.dealer-count-badge {
+  background: var(--accent); color: white; padding: 2px 8px;
+  border-radius: 10px; font-size: 12px; font-weight: 600; margin-left: 8px;
+}
+
 @media (max-width: 600px) {
   .controls { flex-direction: column; }
   .store-card { grid-template-columns: 1fr; gap: 8px; }
@@ -374,7 +451,10 @@ select:focus { border-color: rgba(0,0,0,0.15); }
       <div class="divider"></div>
       <h1>Retailer Directory</h1>
     </div>
-    <div class="header-meta">3,573 EV retailers across 49 states</div>
+    <div class="header-meta">
+      <a href="lists.html" style="color:var(--accent);text-decoration:none;font-weight:500;margin-right:16px;">Prospect Lists</a>
+      3,573 EV retailers across 49 states
+    </div>
   </div>
 </header>
 
@@ -404,6 +484,15 @@ select:focus { border-color: rgba(0,0,0,0.15); }
     <span class="results-count" id="resultsCount"></span>
   </div>
 
+  <div class="dealer-finder-row">
+    <div class="dealer-finder-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+      <input type="text" id="dealerFinderInput" placeholder="Find brand dealers... e.g. 'Stark dealers' or 'where can I buy Himiway'"
+        onkeydown="if(event.key==='Enter')findDealers()">
+    </div>
+    <button class="btn-find-dealers" id="findDealersBtn" onclick="findDealers()">Find Dealers</button>
+  </div>
+
   <div class="state-nav" id="stateNav"></div>
   <div class="state-nav" id="tagNav" style="padding-bottom:16px;"></div>
   <div id="content"></div>
@@ -414,6 +503,17 @@ select:focus { border-color: rgba(0,0,0,0.15); }
   </div>
 </main>
 
+<!-- Context menu -->
+<div class="ctx-menu" id="ctxMenu">
+  <button onclick="ctxViewDetail()">View Details</button>
+  <button onclick="ctxEnrich()">Enrich</button>
+  <button onclick="ctxRemove()" style="color:var(--orange);">Delete</button>
+  <div class="ctx-divider"></div>
+  <div class="ctx-label">Add to List</div>
+  <div id="ctxListItems"></div>
+  <button class="ctx-list-new" onclick="ctxNewList()">+ New List...</button>
+</div>
+
 <!-- Selection toolbar -->
 <div class="toolbar" id="toolbar">
   <span class="sel-count" id="selCount">0 selected</span>
@@ -423,8 +523,38 @@ select:focus { border-color: rgba(0,0,0,0.15); }
   <button class="btn-secondary" onclick="tagSelected()" style="color:#00ced1;">Tag</button>
   <button class="btn-secondary" onclick="removeSelected()" style="color:var(--orange);">Remove</button>
   <span class="spacer"></span>
+  <button class="btn-secondary" onclick="openAddToListModal()" style="color:var(--accent);">Add to List</button>
   <button class="btn-primary" onclick="enrichSelected()">Enrich Selected</button>
   <button class="btn-green" onclick="exportSelected()">Export to Airtable</button>
+</div>
+
+<!-- Add to List modal -->
+<div class="modal-overlay" id="listModalOverlay" onclick="if(event.target===this)closeListModal()">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-header">
+      <h3>Add to Prospect List</h3>
+      <button class="modal-close" onclick="closeListModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:16px;">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:6px;">List</label>
+        <select id="listSelect" style="width:100%;margin-bottom:8px;" onchange="if(this.value==='__new__')document.getElementById('newListInput').style.display='block';">
+          <option value="">Select a list...</option>
+          <option value="__new__">+ Create new list</option>
+        </select>
+        <input type="text" id="newListInput" placeholder="New list name..." style="width:100%;display:none;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;background:transparent;color:var(--text);outline:none;">
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:6px;">Referral Source (optional)</label>
+        <input type="text" id="listReferralInput" placeholder="e.g. Trade show, Cold outreach..." style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;background:transparent;color:var(--text);outline:none;">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <span class="spacer" style="flex:1;"></span>
+      <button class="btn-secondary" onclick="closeListModal()">Cancel</button>
+      <button class="btn-primary" onclick="submitAddToList()">Add</button>
+    </div>
+  </div>
 </div>
 
 <!-- Enrichment modal -->
@@ -442,6 +572,33 @@ select:focus { border-color: rgba(0,0,0,0.15); }
       <span id="modalStatus" style="color:var(--text2);font-size:13px;"></span>
       <span class="spacer" style="flex:1;"></span>
       <button class="btn-secondary" id="modalCloseBtn" onclick="closeModal()" style="display:none;">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Dealer finder modal -->
+<div class="modal-overlay" id="dealerFinderOverlay" onclick="if(event.target===this)closeDealerFinder()">
+  <div class="modal" style="max-width:800px;max-height:85vh;">
+    <div class="modal-header">
+      <h3 id="dealerFinderTitle">Finding dealers...</h3>
+      <button class="modal-close" onclick="closeDealerFinder()">&times;</button>
+    </div>
+    <div class="modal-body" style="overflow-y:auto;max-height:60vh;">
+      <div id="dealerFinderStatus"></div>
+      <div id="dealerFinderResults"></div>
+      <div id="dealerFinderManualUrl" style="display:none;" class="dealer-manual-url">
+        <div style="font-size:13px;font-weight:500;">Paste the dealer locator URL directly:</div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <input type="text" id="manualDealerUrl" placeholder="https://brand.com/dealers">
+          <button class="btn-find-dealers" style="padding:8px 14px;" onclick="findDealersManual()">Scrape</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <span id="dealerFinderMeta" style="color:var(--text2);font-size:12px;"></span>
+      <span style="flex:1;"></span>
+      <button class="btn-secondary" id="dealerFinderAddBtn" onclick="addFoundDealersToList()" style="display:none;color:var(--accent);">Add to Prospect List</button>
+      <button class="btn-secondary" onclick="closeDealerFinder()">Close</button>
     </div>
   </div>
 </div>
@@ -484,6 +641,10 @@ function init() {
   document.getElementById('sortSelect').addEventListener('change', applyFilters);
   loadEnrichmentStatus();
   loadTags();
+  // Deep-link: ?detail=IDX opens store detail modal
+  const params = new URLSearchParams(window.location.search);
+  const detailIdx = params.get('detail');
+  if (detailIdx !== null) openDetail(parseInt(detailIdx));
 }
 
 async function loadTags() {
@@ -726,7 +887,7 @@ function renderStore(d) {
     tags.forEach(t => { extraBadges += ` <span class="badge tag">${esc(t)}</span>`; });
   }
 
-  return `<div class="store-card${selClass}${removedClass}" data-idx="${d._idx}" onclick="onCardClick(event, ${d._idx})" ondblclick="onCardDblClick(event, ${d._idx})">
+  return `<div class="store-card${selClass}${removedClass}" data-idx="${d._idx}" onclick="onCardClick(event, ${d._idx})" ondblclick="onCardDblClick(event, ${d._idx})" oncontextmenu="onCardContext(event, ${d._idx})">
     <div>
       <div class="store-name">${esc(d.name)}${extraBadges}</div>
       <div class="store-address">${esc(d.address)}</div>
@@ -911,6 +1072,80 @@ async function exportSelected() {
   document.getElementById('modalCloseBtn').style.display = 'block';
 }
 
+// ── Add to List ─────────────────────────────────────────────────────────
+async function openAddToListModal() {
+  const sel = document.getElementById('listSelect');
+  // Keep first two options, remove the rest
+  while (sel.options.length > 2) sel.remove(2);
+  document.getElementById('newListInput').style.display = 'none';
+  document.getElementById('newListInput').value = '';
+  document.getElementById('listReferralInput').value = '';
+  sel.value = '';
+  // Fetch existing lists
+  try {
+    const resp = await fetch('/api/lists?action=get_lists');
+    if (resp.ok) {
+      const data = await resp.json();
+      (data.lists || []).forEach(l => {
+        const opt = document.createElement('option');
+        opt.value = l.name;
+        opt.textContent = `${l.name} (${l.count})`;
+        sel.appendChild(opt);
+      });
+    }
+  } catch(e) {}
+  document.getElementById('listModalOverlay').classList.add('visible');
+}
+
+function closeListModal() {
+  document.getElementById('listModalOverlay').classList.remove('visible');
+}
+
+async function submitAddToList() {
+  const sel = document.getElementById('listSelect');
+  let listName = sel.value;
+  if (listName === '__new__') {
+    listName = document.getElementById('newListInput').value.trim();
+  }
+  if (!listName) { alert('Please select or create a list.'); return; }
+
+  const referral = document.getElementById('listReferralInput').value.trim() || undefined;
+  const indices = Array.from(selected);
+  if (indices.length === 0) return;
+
+  closeListModal();
+  openModal('Adding to List');
+  const log = document.getElementById('modalLog');
+  const fill = document.getElementById('progressFill');
+  const status = document.getElementById('modalStatus');
+  log.innerHTML = '<div class="log-entry"><span class="log-status scraping">adding</span><span class="log-name">Adding stores to list...</span></div>';
+  fill.style.width = '50%';
+  status.textContent = `Adding ${indices.length} stores to "${listName}"...`;
+  document.getElementById('modalCloseBtn').style.display = 'none';
+
+  try {
+    const resp = await fetch('/api/lists', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({action: 'add_to_list', store_indices: indices, list_name: listName, referral_source: referral}),
+    });
+    const data = await resp.json();
+    fill.style.width = '100%';
+    if (data.success) {
+      status.textContent = 'Done!';
+      log.innerHTML = `<div class="log-entry"><span class="log-status success">done</span><span class="log-name">Added ${data.added} stores to "${esc(listName)}"</span></div>`;
+    } else {
+      status.textContent = 'Failed';
+      log.innerHTML = `<div class="log-entry"><span class="log-status error">error</span><span class="log-name">${esc(data.error || 'Unknown error')}</span></div>`;
+    }
+  } catch(e) {
+    fill.style.width = '100%';
+    status.textContent = 'Error: ' + e.message;
+    log.innerHTML = `<div class="log-entry"><span class="log-status error">error</span><span class="log-name">${esc(e.message)}</span></div>`;
+  }
+  document.getElementById('modalCloseBtn').style.display = 'block';
+}
+
 // ── Modal helpers ────────────────────────────────────────────────────────
 function openModal(title) {
   document.getElementById('modalTitle').textContent = title;
@@ -919,6 +1154,88 @@ function openModal(title) {
 
 function closeModal() {
   document.getElementById('modalOverlay').classList.remove('visible');
+}
+
+// ── Context menu ─────────────────────────────────────────────────────────
+let ctxIdx = null;
+let _cachedLists = null;
+let _cachedListsAt = 0;
+
+async function onCardContext(event, idx) {
+  event.preventDefault();
+  ctxIdx = idx;
+  // If this card isn't selected, select it
+  if (!selected.has(idx)) {
+    toggleSelect(idx, true);
+    const card = document.querySelector(`.store-card[data-idx="${idx}"]`);
+    if (card) card.classList.add('selected');
+    const cb = card?.querySelector('input[type="checkbox"]');
+    if (cb) cb.checked = true;
+    updateSelectionToolbar();
+  }
+  const menu = document.getElementById('ctxMenu');
+  menu.style.left = Math.min(event.clientX, window.innerWidth - 200) + 'px';
+  menu.style.top = Math.min(event.clientY, window.innerHeight - 120) + 'px';
+
+  // Populate inline list picker
+  const listContainer = document.getElementById('ctxListItems');
+  const now = Date.now();
+  if (!_cachedLists || now - _cachedListsAt > 10000) {
+    listContainer.innerHTML = '<div style="padding:6px 16px;font-size:12px;color:var(--text2);">Loading...</div>';
+    try {
+      const resp = await fetch('/api/lists?action=get_lists');
+      if (resp.ok) {
+        const data = await resp.json();
+        _cachedLists = data.lists || [];
+        _cachedListsAt = now;
+      }
+    } catch(e) { _cachedLists = []; _cachedListsAt = now; }
+  }
+  if (_cachedLists && _cachedLists.length > 0) {
+    listContainer.innerHTML = _cachedLists.map(l =>
+      `<button class="ctx-list-item" onclick="ctxQuickAdd('${esc(l.name).replace(/'/g, "\\'")}')">${esc(l.name)} (${l.count})</button>`
+    ).join('');
+  } else {
+    listContainer.innerHTML = '<div style="padding:6px 16px;font-size:12px;color:var(--text2);">No lists yet</div>';
+  }
+
+  menu.classList.add('visible');
+}
+document.addEventListener('click', () => document.getElementById('ctxMenu').classList.remove('visible'));
+document.addEventListener('contextmenu', (e) => {
+  if (!e.target.closest('.store-card')) document.getElementById('ctxMenu').classList.remove('visible');
+});
+
+async function ctxQuickAdd(listName) {
+  document.getElementById('ctxMenu').classList.remove('visible');
+  const indices = Array.from(selected);
+  if (indices.length === 0) return;
+  try {
+    await fetch('/api/lists', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({action: 'add_to_list', store_indices: indices, list_name: listName}),
+    });
+    _cachedLists = null; // bust cache so counts refresh
+  } catch(e) {}
+  clearSelection();
+}
+function ctxNewList() {
+  document.getElementById('ctxMenu').classList.remove('visible');
+  openAddToListModal();
+}
+function ctxEnrich() {
+  document.getElementById('ctxMenu').classList.remove('visible');
+  enrichSelected();
+}
+function ctxViewDetail() {
+  document.getElementById('ctxMenu').classList.remove('visible');
+  if (ctxIdx !== null) openDetail(ctxIdx);
+}
+function ctxRemove() {
+  document.getElementById('ctxMenu').classList.remove('visible');
+  selected.forEach(idx => removed.add(idx));
+  clearSelection();
 }
 
 // ── Row click handler ────────────────────────────────────────────────────
@@ -1260,10 +1577,198 @@ function closeDetail() {
 // Close detail on Escape
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    if (document.getElementById('detailOverlay').classList.contains('visible')) closeDetail();
+    if (document.getElementById('dealerFinderOverlay').classList.contains('visible')) closeDealerFinder();
+    else if (document.getElementById('detailOverlay').classList.contains('visible')) closeDetail();
     else if (document.getElementById('modalOverlay').classList.contains('visible')) closeModal();
   }
 });
+
+// ── Dealer Finder ────────────────────────────────────────────────────────
+let foundDealers = [];
+let dealerFinderBrand = '';
+
+async function findDealers() {
+  const input = document.getElementById('dealerFinderInput');
+  const query = input.value.trim();
+  if (!query) return;
+
+  const btn = document.getElementById('findDealersBtn');
+  btn.disabled = true;
+  btn.textContent = 'Searching...';
+
+  // Open modal with loading state
+  document.getElementById('dealerFinderOverlay').classList.add('visible');
+  document.getElementById('dealerFinderTitle').textContent = 'Finding dealers...';
+  document.getElementById('dealerFinderStatus').innerHTML =
+    '<div class="dealer-finder-status"><span class="spinner"></span>Searching for dealers...</div>';
+  document.getElementById('dealerFinderResults').innerHTML = '';
+  document.getElementById('dealerFinderManualUrl').style.display = 'none';
+  document.getElementById('dealerFinderAddBtn').style.display = 'none';
+  document.getElementById('dealerFinderMeta').textContent = '';
+
+  try {
+    const resp = await fetch('/api/dealer-finder', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({query}),
+    });
+    const data = await resp.json();
+    renderDealerFinderResults(data);
+  } catch(e) {
+    document.getElementById('dealerFinderStatus').innerHTML =
+      `<div class="dealer-finder-status" style="color:var(--orange);">Error: ${esc(e.message)}</div>`;
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Find Dealers';
+}
+
+async function findDealersManual() {
+  const urlInput = document.getElementById('manualDealerUrl');
+  const url = urlInput.value.trim();
+  if (!url) return;
+
+  document.getElementById('dealerFinderStatus').innerHTML =
+    '<div class="dealer-finder-status"><span class="spinner"></span>Scraping dealer page...</div>';
+  document.getElementById('dealerFinderResults').innerHTML = '';
+
+  try {
+    const resp = await fetch('/api/dealer-finder', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({brand: dealerFinderBrand, url}),
+    });
+    const data = await resp.json();
+    renderDealerFinderResults(data);
+  } catch(e) {
+    document.getElementById('dealerFinderStatus').innerHTML =
+      `<div class="dealer-finder-status" style="color:var(--orange);">Error: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderDealerFinderResults(data) {
+  foundDealers = data.dealers || [];
+  dealerFinderBrand = data.brand || '';
+
+  const title = document.getElementById('dealerFinderTitle');
+  const status = document.getElementById('dealerFinderStatus');
+  const results = document.getElementById('dealerFinderResults');
+  const meta = document.getElementById('dealerFinderMeta');
+  const addBtn = document.getElementById('dealerFinderAddBtn');
+  const manualUrl = document.getElementById('dealerFinderManualUrl');
+
+  if (data.error && foundDealers.length === 0) {
+    title.textContent = `${data.brand || 'Dealer'} Search`;
+    status.innerHTML = `<div class="dealer-finder-status" style="color:var(--orange);">${esc(data.error)}</div>`;
+    manualUrl.style.display = 'block';
+    return;
+  }
+
+  title.innerHTML = `${esc(data.brand)} Dealers <span class="dealer-count-badge">${foundDealers.length}</span>`;
+  status.innerHTML = '';
+  manualUrl.style.display = 'none';
+
+  if (foundDealers.length === 0) {
+    results.innerHTML = '<div class="dealer-finder-status">No dealers found.</div>';
+    manualUrl.style.display = 'block';
+    return;
+  }
+
+  // Check which dealers already exist in the directory
+  const existingNames = new Set(DATA.map(d => d.name.toLowerCase().trim()));
+
+  let html = '';
+  foundDealers.forEach((d, i) => {
+    const isExisting = existingNames.has((d.name || '').toLowerCase().trim());
+    const existingBadge = isExisting ? ' <span class="badge existing">in directory</span>' : '';
+    const addr = [d.address, d.city, d.state, d.zip].filter(Boolean).join(', ');
+
+    html += `<div class="dealer-result-card">
+      <div class="dealer-result-info">
+        <div class="name">${esc(d.name || 'Unknown')}${existingBadge}</div>
+        ${addr ? `<div class="addr">${esc(addr)}</div>` : ''}
+        <div class="meta">
+          ${d.phone ? `<span>${esc(d.phone)}</span>` : ''}
+          ${d.phone && d.website ? ' &middot; ' : ''}
+          ${d.website ? `<a href="${esc(d.website)}" target="_blank" rel="noopener" style="color:var(--accent2);text-decoration:none;">${esc(d.website.replace(/^https?:\/\//, '').replace(/\/+$/, '').substring(0, 40))}</a>` : ''}
+        </div>
+      </div>
+    </div>`;
+  });
+
+  results.innerHTML = html;
+  meta.textContent = `${foundDealers.length} dealers found via ${data.strategy || 'scraping'} • Source: ${(data.source_url || '').substring(0, 60)}`;
+  addBtn.style.display = 'inline-flex';
+}
+
+async function addFoundDealersToList() {
+  if (foundDealers.length === 0) return;
+
+  const listName = prompt(`Add ${foundDealers.length} ${dealerFinderBrand} dealers to which prospect list?`, `${dealerFinderBrand} Dealers`);
+  if (!listName) return;
+
+  // We need to add these as new store indices. Since they're not in DATA,
+  // we'll temporarily add them and use the add_to_list action.
+  const startIdx = DATA.length;
+  const newIndices = [];
+
+  foundDealers.forEach((d, i) => {
+    // Skip if already in directory
+    const exists = DATA.some(s => s.name.toLowerCase().trim() === (d.name || '').toLowerCase().trim());
+    if (exists) return;
+
+    const newStore = {
+      name: d.name || 'Unknown',
+      address: [d.address, d.city, d.state, d.zip].filter(Boolean).join(', '),
+      city: d.city || '',
+      state: d.state || '',
+      rating: 0,
+      review_count: 0,
+      phone: d.phone || '',
+      website: d.website || '',
+      store_type: 'dedicated_ebike',
+      email: '',
+      score: 0,
+      chain: null,
+      _idx: startIdx + newIndices.length,
+    };
+    DATA.push(newStore);
+    newIndices.push(newStore._idx);
+  });
+
+  if (newIndices.length === 0) {
+    alert('All dealers are already in the directory.');
+    return;
+  }
+
+  // Call the add_to_list API
+  try {
+    const resp = await fetch('/api/lists', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        action: 'add_to_list',
+        store_indices: newIndices,
+        list_name: listName,
+        referral_source: `${dealerFinderBrand} Dealer Locator`,
+      }),
+    });
+    const result = await resp.json();
+    if (result.success) {
+      alert(`Added ${result.added} dealers to "${listName}"`);
+      closeDealerFinder();
+      applyFilters();
+    } else {
+      alert('Error: ' + (result.error || 'Unknown error'));
+    }
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+function closeDealerFinder() {
+  document.getElementById('dealerFinderOverlay').classList.remove('visible');
+}
 
 init();
 </script>

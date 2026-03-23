@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prospect Lists — Infinite Machine</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #ffffff;
+  --surface: #fafafa;
+  --surface2: #f4f4f5;
+  --border: #e5e5e5;
+  --text: #171717;
+  --text2: #737373;
+  --text3: #a3a3a3;
+  --accent: #6366f1;
+  --accent2: #4f46e5;
+  --accent-soft: rgba(99,102,241,0.08);
+  --green: #16a34a;
+  --yellow: #ca8a04;
+  --orange: #ea580c;
+  --cyan: #0891b2;
+  --red: #dc2626;
+  --purple: #9333ea;
+  --radius: 10px;
+}
+body {
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg); color: var(--text); line-height: 1.5; min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+.container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+/* Header */
+header { border-bottom: 1px solid var(--border); height: 56px; display: flex; align-items: center; }
+header .container { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.logo { display: flex; align-items: center; gap: 16px; }
+.logo svg { height: 18px; width: auto; }
+.logo .divider { width: 1px; height: 24px; background: var(--border); }
+.logo h1 { font-size: 15px; font-weight: 500; color: var(--text2); letter-spacing: -0.01em; }
+.header-links { display: flex; gap: 16px; align-items: center; }
+.header-links a { color: var(--text2); text-decoration: none; font-size: 13px; font-weight: 500; transition: color 0.15s; }
+.header-links a:hover { color: var(--text); }
+.header-links a.active { color: var(--accent); }
+
+/* List overview */
+.overview-header { display: flex; align-items: center; justify-content: space-between; padding: 24px 0 16px; }
+.overview-header h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+.list-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; padding-bottom: 24px; }
+.list-card {
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 20px; cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden;
+}
+.list-card:hover { border-color: var(--accent); box-shadow: 0 4px 16px rgba(99,102,241,0.08); transform: translateY(-1px); }
+.list-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; letter-spacing: -0.01em; }
+.list-card .count { font-size: 13px; color: var(--text2); margin-bottom: 12px; }
+.list-card .status-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.list-card .progress-bar { height: 4px; border-radius: 2px; background: var(--surface2); overflow: hidden; display: flex; }
+.list-card .progress-bar .seg { height: 100%; transition: width 0.3s; }
+.status-pill { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
+.new-list-card {
+  background: transparent; border: 2px dashed var(--border); display: flex;
+  align-items: center; justify-content: center; min-height: 140px;
+  color: var(--text2); font-size: 14px; font-weight: 500; gap: 8px;
+  transition: all 0.2s;
+}
+.new-list-card:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.new-list-card svg { width: 20px; height: 20px; }
+
+/* Detail view */
+.detail-view { display: none; padding: 24px 0; }
+.detail-view.visible { display: block; }
+.detail-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.breadcrumb a { color: var(--text2); text-decoration: none; font-weight: 500; transition: color 0.15s; }
+.breadcrumb a:hover { color: var(--accent); }
+.breadcrumb .sep { color: var(--text3); }
+.breadcrumb .current { font-weight: 700; color: var(--text); font-size: 20px; letter-spacing: -0.02em; }
+.detail-count { color: var(--text2); font-size: 13px; }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+
+.btn-ghost {
+  background: none; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 7px 14px; font-size: 13px; cursor: pointer; color: var(--text);
+  font-weight: 500; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px;
+}
+.btn-ghost:hover { background: var(--surface2); border-color: rgba(0,0,0,0.12); }
+.btn-ghost.accent { border-color: var(--accent); color: var(--accent); }
+.btn-ghost.accent:hover { background: var(--accent-soft); }
+.btn-ai {
+  background: linear-gradient(135deg, var(--accent), var(--purple)); border: none; border-radius: var(--radius);
+  padding: 7px 14px; font-size: 13px; cursor: pointer; color: white;
+  font-weight: 500; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px;
+}
+.btn-ai:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,0.3); }
+
+/* View toggle */
+.view-toggle { display: flex; gap: 2px; background: var(--surface2); border-radius: 8px; padding: 2px; }
+.view-toggle button {
+  padding: 6px 14px; border-radius: 6px; border: none; font-size: 12px;
+  font-weight: 500; cursor: pointer; background: transparent; color: var(--text2);
+  transition: all 0.15s;
+}
+.view-toggle button.active { background: var(--bg); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+/* Pipeline bar */
+.pipeline { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+.pipeline-pill {
+  padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; border: 1px solid transparent;
+  user-select: none;
+}
+.pipeline-pill:hover { opacity: 0.85; }
+.pipeline-pill.active { box-shadow: 0 0 0 2px var(--accent); }
+
+/* Prospect table */
+.prospect-table { width: 100%; border-collapse: collapse; }
+.prospect-table th {
+  text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text2); font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--border);
+}
+.prospect-table td { padding: 12px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: top; }
+.prospect-row { cursor: pointer; transition: background 0.1s; }
+.prospect-row:hover { background: var(--surface); }
+.prospect-row.expanded { background: var(--surface); }
+.prospect-row td:first-child { width: 36px; }
+.status-badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
+
+/* Inline editor */
+.inline-editor { display: none; background: var(--surface2); border-bottom: 1px solid var(--border); }
+.inline-editor.visible { display: table-row; }
+.editor-cell { padding: 16px 12px; }
+.editor-grid { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 16px; }
+.editor-field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text2); font-weight: 600; margin-bottom: 4px; }
+.editor-field select, .editor-field input, .editor-field textarea {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 13px; background: var(--bg); color: var(--text); outline: none;
+  font-family: inherit; transition: border-color 0.15s;
+}
+.editor-field select:focus, .editor-field input:focus, .editor-field textarea:focus { border-color: var(--accent); }
+.editor-field textarea { resize: vertical; min-height: 60px; }
+
+/* Kanban board */
+.kanban { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 16px; min-height: 400px; }
+.kanban-column {
+  flex: 0 0 240px; background: var(--surface2); border-radius: var(--radius);
+  display: flex; flex-direction: column; max-height: calc(100vh - 220px); transition: background 0.15s;
+}
+.kanban-column-header {
+  padding: 12px 14px; font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.05em; display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 1; border-radius: var(--radius) var(--radius) 0 0;
+}
+.kanban-column-header .col-count {
+  font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 10px; background: rgba(0,0,0,0.06);
+}
+.kanban-cards { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px; min-height: 60px; }
+.kanban-card {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px; cursor: grab; transition: all 0.15s; font-size: 13px;
+}
+.kanban-card:hover { border-color: rgba(0,0,0,0.15); box-shadow: 0 2px 8px rgba(0,0,0,0.04); transform: translateY(-1px); }
+.kanban-card:active { cursor: grabbing; }
+.kanban-card.dragging { opacity: 0.4; transform: scale(0.96); }
+.kanban-card h4 { font-size: 13px; font-weight: 600; margin-bottom: 2px; letter-spacing: -0.01em; }
+.kanban-card .meta { font-size: 11px; color: var(--text2); line-height: 1.4; }
+.kanban-card .card-footer { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.kanban-card .type-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.kanban-card .type-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.03em; }
+.kanban-card .rating { font-size: 11px; color: var(--yellow); margin-left: auto; }
+.kanban-column.drag-over { background: rgba(99,102,241,0.08); }
+.kanban-column.drag-over .kanban-cards { outline: 2px dashed var(--accent); outline-offset: -4px; border-radius: 6px; }
+.kanban-empty { padding: 16px 12px; text-align: center; color: var(--text3); font-size: 12px; font-style: italic; }
+
+/* Selection toolbar */
+.toolbar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+  background: var(--text); border-top: 1px solid var(--border);
+  padding: 10px 24px; display: none; align-items: center; gap: 12px;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.15); border-radius: 12px 12px 0 0;
+}
+.toolbar.visible { display: flex; }
+.toolbar .sel-count { font-weight: 600; font-size: 13px; min-width: 90px; color: white; }
+.toolbar button { padding: 7px 14px; border-radius: 8px; border: none; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+.toolbar .btn-secondary { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); }
+.toolbar .btn-secondary:hover { background: rgba(255,255,255,0.15); }
+.toolbar .btn-primary { background: var(--accent); color: white; }
+.toolbar .btn-primary:hover { background: var(--accent2); }
+.toolbar .btn-danger { background: var(--red); color: white; }
+.toolbar .btn-danger:hover { opacity: 0.85; }
+.toolbar .spacer { flex: 1; }
+
+/* Modal overlay (shared) */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0);
+  display: none; align-items: center; justify-content: center;
+  transition: background 0.2s;
+}
+.modal-overlay.visible { display: flex; background: rgba(0,0,0,0.4); }
+.modal-box {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.2);
+  animation: modalSlideUp 0.25s ease-out;
+}
+@keyframes modalSlideUp {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.modal-header {
+  padding: 20px 24px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.modal-header h3 { font-size: 16px; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text2); line-height: 1; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.modal-close:hover { color: var(--text); background: var(--surface2); }
+.modal-body { padding: 20px 24px; }
+.modal-footer {
+  padding: 16px 24px; border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end; gap: 8px;
+}
+.modal-footer button { padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+.modal-footer .btn-cancel { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.modal-footer .btn-cancel:hover { background: var(--surface2); }
+.modal-footer .btn-submit { background: var(--accent); border: none; color: white; }
+.modal-footer .btn-submit:hover { background: var(--accent2); }
+.modal-footer .btn-submit.ai { background: linear-gradient(135deg, var(--accent), var(--purple)); }
+.modal-footer .btn-submit.ai:hover { opacity: 0.9; }
+.modal-footer .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* AI section in create modal */
+.ai-section {
+  margin-top: 20px; padding: 16px; border: 1px solid rgba(99,102,241,0.2);
+  border-radius: var(--radius); background: linear-gradient(135deg, rgba(99,102,241,0.04), rgba(147,51,234,0.04));
+}
+.ai-section-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.ai-section-header .sparkle { font-size: 16px; }
+.ai-section-header span { font-size: 13px; font-weight: 600; color: var(--accent); }
+.ai-section textarea {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 13px; background: var(--bg); color: var(--text); outline: none;
+  font-family: inherit; resize: vertical; min-height: 56px; transition: border-color 0.15s;
+}
+.ai-section textarea:focus { border-color: var(--accent); }
+.ai-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.ai-chip {
+  font-size: 11px; padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--text2); cursor: pointer; transition: all 0.15s;
+  white-space: nowrap;
+}
+.ai-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+/* Store search results */
+.store-results { max-height: 360px; overflow-y: auto; margin-top: 12px; }
+.store-result {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+  border-radius: 8px; cursor: pointer; transition: background 0.1s;
+}
+.store-result:hover { background: var(--surface2); }
+.store-result.selected { background: var(--accent-soft); }
+.store-result.already { opacity: 0.5; cursor: default; }
+.store-result input[type="checkbox"] { flex-shrink: 0; }
+.store-result .info { flex: 1; min-width: 0; }
+.store-result .info strong { font-size: 13px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.store-result .info .loc { font-size: 12px; color: var(--text2); }
+.store-result .in-list { font-size: 11px; color: var(--green); font-weight: 600; flex-shrink: 0; }
+
+/* Empty state */
+.empty { text-align: center; padding: 60px 20px; color: var(--text2); }
+.empty h3 { font-size: 20px; margin-bottom: 8px; color: var(--text); font-weight: 700; letter-spacing: -0.02em; }
+.empty p { font-size: 14px; max-width: 360px; margin: 0 auto; }
+.empty .btn-add {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 20px; padding: 10px 24px; border-radius: 8px;
+  border: none; background: var(--accent); color: white; font-size: 13px;
+  font-weight: 500; cursor: pointer; transition: all 0.15s;
+}
+.empty .btn-add:hover { background: var(--accent2); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,0.25); }
+.empty-icon {
+  width: 64px; height: 64px; margin: 0 auto 20px; border-radius: 16px;
+  background: linear-gradient(135deg, var(--accent-soft), rgba(147,51,234,0.08));
+  display: flex; align-items: center; justify-content: center; font-size: 28px;
+}
+
+/* AI progress steps */
+.ai-progress { max-width: 400px; margin: 0 auto; text-align: left; }
+.ai-step { display: flex; align-items: center; gap: 12px; padding: 10px 0; font-size: 14px; color: var(--text3); transition: color 0.3s; }
+.ai-step.active { color: var(--text); }
+.ai-step.done { color: var(--green); }
+.ai-step .dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex-shrink: 0;
+  transition: all 0.3s;
+}
+.ai-step.active .dot { background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+.ai-step.done .dot { background: var(--green); }
+@keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.6; } }
+
+/* Toast notifications */
+.toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 300; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 500;
+  color: white; box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  animation: toastIn 0.3s ease-out;
+  display: flex; align-items: center; gap: 8px; max-width: 380px;
+}
+.toast.success { background: var(--green); }
+.toast.error { background: var(--red); }
+.toast.info { background: var(--text); }
+.toast.leaving { animation: toastOut 0.2s ease-in forwards; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(12px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes toastOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-8px); } }
+
+/* Loading */
+.loading { text-align: center; padding: 40px; color: var(--text2); font-size: 14px; }
+
+/* Input field (shared) */
+.field-input {
+  width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: 14px; background: var(--bg); color: var(--text); outline: none; font-family: inherit;
+}
+.field-input:focus { border-color: var(--accent); }
+
+@media (max-width: 600px) {
+  .editor-grid { grid-template-columns: 1fr; }
+  .toolbar { flex-wrap: wrap; }
+  .pipeline { gap: 4px; }
+  .kanban-column { flex: 0 0 200px; }
+  .detail-header { gap: 8px; }
+  .header-actions { width: 100%; justify-content: flex-end; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <div class="logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 831.97 45.21"><g><path fill="currentColor" d="M13.56.33V44.88H0V.33Z"/><path fill="currentColor" d="M44.93.33l27,33.86L71.58.33H84.4V44.88H62.63L36,11.35l.34,33.53h-13V.33Z"/><path fill="currentColor" d="M141.66.33V10.42H107.87V19.3h32.06V29.39H107.87V44.88H94.38V.33Z"/><path fill="currentColor" d="M163.09.33V44.88H149.54V.33Z"/><path fill="currentColor" d="M194.46.33l27,33.86L221.11.33h12.82V44.88H212.16L185.58,11.35l.33,33.53h-13V.33Z"/><path fill="currentColor" d="M257.44.33V44.88H243.89V.33Z"/><path fill="currentColor" d="M264.52,11.35V.33h53.23v11H297.91V44.88H284.35V11.35Z"/><path fill="currentColor" d="M374.26,10.42h-36V18.1h33.93v8.81H338.26V34.8h36.47V44.88H324.91V.33h49.35Z"/><path fill="currentColor" d="M423,.33l16.23,29.59L455.34.33h21.37V44.88H463.49l.67-34.39L444.39,44.88H433.57L414.13,10.49l.4,34.39H401.44V.33Z"/><path fill="currentColor" d="M526.62.33,551,44.88H536.17l-4.4-8H503.05l-4.28,8H483.41l25-44.55Zm-9.21,9.55-9.49,17.77H527Z"/><path fill="currentColor" d="M611.09,32.22c0,1.14-.11,2.11-.2,2.91a13.74,13.74,0,0,1-.36,2.07,11.1,11.1,0,0,1-.57,1.6,8.86,8.86,0,0,1-4.21,4.31,21.46,21.46,0,0,1-8.08,1.77q-2.07.19-6.18.27t-10.78.06c-3.21,0-5.91,0-8.12-.13a53.92,53.92,0,0,1-5.61-.47,20.34,20.34,0,0,1-3.9-.9,14.32,14.32,0,0,1-2.94-1.43,10.08,10.08,0,0,1-2.77-2.58,11.37,11.37,0,0,1-1.74-3.87,32.31,32.31,0,0,1-.9-5.84c-.18-2.32-.27-5.12-.27-8.42q0-4.41.27-7.48a23.36,23.36,0,0,1,1-5.24,10,10,0,0,1,1.87-3.54,10.88,10.88,0,0,1,2.9-2.37,16.6,16.6,0,0,1,3.17-1.44,23.22,23.22,0,0,1,4-.9Q570,.27,573.29.13c2.19-.09,4.83-.13,8-.13q6.21,0,10.22.07c2.67,0,4.88.15,6.61.33a27.49,27.49,0,0,1,4.21.7,18,18,0,0,1,3,1.1,8.12,8.12,0,0,1,4,4.35,20.63,20.63,0,0,1,1.27,7.94V16h-13a11.59,11.59,0,0,0-.5-2.87,2.69,2.69,0,0,0-1.7-1.6,12.6,12.6,0,0,0-3.87-.67c-1.7-.09-4-.13-6.95-.13q-4.14,0-6.74.06c-1.74.05-3.13.14-4.18.27a10.12,10.12,0,0,0-2.4.53,5.12,5.12,0,0,0-1.44.87,4.48,4.48,0,0,0-1,1.24,7.48,7.48,0,0,0-.6,1.87,20.61,20.61,0,0,0-.3,2.94c0,1.18-.07,2.66-.07,4.44a42.86,42.86,0,0,0,.37,6.31A5.34,5.34,0,0,0,570,32.66a8,8,0,0,0,4.21,1.43,75.75,75.75,0,0,0,7.68.31c2.54,0,4.57,0,6.11,0s2.77,0,3.71-.1a12.82,12.82,0,0,0,2.13-.23,7.73,7.73,0,0,0,1.47-.5,3.77,3.77,0,0,0,2.07-1.81,8.36,8.36,0,0,0,.6-3.6h13.16C611.16,29.72,611.14,31.09,611.09,32.22Z"/><path fill="currentColor" d="M633.44.33v16.5H664.3V.33h13.56V44.88H664.3v-17H633.44v17H619.88V.33Z"/><path fill="currentColor" d="M701.33.33V44.88H687.77V.33Z"/><path fill="currentColor" d="M732.7.33l27,33.86L759.35.33h12.82V44.88H750.4L723.82,11.35l.33,33.53h-13V.33Z"/><path fill="currentColor" d="M831.51,10.42h-36V18.1h33.93v8.81H795.51V34.8H832V44.88H782.15V.33h49.36Z"/></g></svg>
+      <div class="divider"></div>
+      <h1>Prospect Lists</h1>
+    </div>
+    <div class="header-links">
+      <a href="index.html">Directory</a>
+      <a href="lists.html" class="active">Lists</a>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+  <!-- View A: List Overview -->
+  <div id="listOverview">
+    <div class="loading" id="listsLoading">Loading lists...</div>
+    <div id="listGridWrap" style="display:none;">
+      <div class="overview-header">
+        <h2>Your Lists</h2>
+        <button class="btn-ghost accent" onclick="createNewList()">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+          New List
+        </button>
+      </div>
+      <div class="list-grid" id="listGrid"></div>
+    </div>
+    <div class="empty" id="listsEmpty" style="display:none;">
+      <div class="empty-icon">&#128640;</div>
+      <h3>Create your first prospect list</h3>
+      <p>Organize stores into targeted lists and track your outreach pipeline from first contact to partnership.</p>
+      <button class="btn-add" onclick="createNewList()">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+        New List
+      </button>
+    </div>
+  </div>
+
+  <!-- View B: List Detail -->
+  <div id="listDetail" class="detail-view">
+    <div class="detail-header">
+      <div class="breadcrumb">
+        <a href="#" onclick="event.preventDefault();showOverview()">Lists</a>
+        <span class="sep">/</span>
+        <span class="current" id="listName"></span>
+      </div>
+      <span class="detail-count" id="listCount"></span>
+      <span style="flex:1;"></span>
+      <div class="header-actions">
+        <button class="btn-ai" onclick="openAiAddModal()">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1l1.5 3.5L13 6l-3.5 1.5L8 11 6.5 7.5 3 6l3.5-1.5L8 1z"/><path d="M12 10l.75 1.75L14.5 12.5l-1.75.75L12 15l-.75-1.75-1.75-.75 1.75-.75z" opacity="0.6"/></svg>
+          AI Add
+        </button>
+        <button class="btn-ghost accent" onclick="openStoreSearch()">+ Add Stores</button>
+        <div class="view-toggle">
+          <button id="viewTable" class="active" onclick="setView('table')">Table</button>
+          <button id="viewKanban" onclick="setView('kanban')">Board</button>
+        </div>
+      </div>
+    </div>
+    <div class="pipeline" id="pipeline"></div>
+    <div id="prospectContent"><div class="loading">Loading prospects...</div></div>
+    <div id="kanbanContent" style="display:none;"></div>
+  </div>
+</main>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Selection toolbar -->
+<div class="toolbar" id="toolbar">
+  <span class="sel-count" id="selCount">0 selected</span>
+  <button class="btn-secondary" onclick="clearSelection()">Clear</button>
+  <span class="spacer"></span>
+  <button class="btn-primary" onclick="openBulkStatusModal()">Change Status</button>
+  <button class="btn-danger" onclick="removeSelectedFromList()">Remove</button>
+</div>
+
+<!-- Bulk status modal -->
+<div class="modal-overlay" id="bulkStatusOverlay" onclick="if(event.target===this)closeBulkStatus()">
+  <div class="modal-box" style="width:90%;max-width:360px;">
+    <div class="modal-header">
+      <h3>Change Status</h3>
+      <button class="modal-close" onclick="closeBulkStatus()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <select id="bulkStatusSelect" class="field-input"></select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeBulkStatus()">Cancel</button>
+      <button class="btn-submit" onclick="applyBulkStatus()">Apply</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create list modal -->
+<div class="modal-overlay" id="createListOverlay" onclick="if(event.target===this)closeCreateList()">
+  <div class="modal-box" style="width:90%;max-width:480px;">
+    <div class="modal-header">
+      <h3>Create New List</h3>
+      <button class="modal-close" onclick="closeCreateList()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">List Name</label>
+      <input type="text" id="createListInput" class="field-input" placeholder="e.g. Pacific Northwest Dealers" onkeydown="if(event.key==='Enter' && !document.getElementById('createListDescription').value.trim())submitCreateList()" oninput="updateCreateBtn()">
+      <div class="ai-section">
+        <div class="ai-section-header">
+          <span class="sparkle">&#10024;</span>
+          <span>Auto-populate with AI</span>
+        </div>
+        <textarea id="createListDescription" class="field-input" rows="2" placeholder="Describe what stores to include..." style="border:1px solid var(--border);resize:vertical;min-height:48px;" oninput="updateCreateBtn()"></textarea>
+        <div class="ai-chips">
+          <span class="ai-chip" onclick="fillAiChip('E-bike specialists in California with 4.5+ stars')">CA e-bike shops</span>
+          <span class="ai-chip" onclick="fillAiChip('Top-rated dealers in the Southeast')">Southeast dealers</span>
+          <span class="ai-chip" onclick="fillAiChip('Bike shops near major cities in the Pacific Northwest')">Pacific NW</span>
+          <span class="ai-chip" onclick="fillAiChip('Motorcycle and powersports dealers in Texas')">TX powersports</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeCreateList()">Cancel</button>
+      <button class="btn-submit" id="createListSubmitBtn" onclick="submitCreateList()">Create Empty List</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI Add to existing list modal -->
+<div class="modal-overlay" id="aiAddOverlay" onclick="if(event.target===this)closeAiAdd()">
+  <div class="modal-box" style="width:90%;max-width:480px;">
+    <div class="modal-header">
+      <h3 style="display:flex;align-items:center;gap:8px;">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="var(--accent)" stroke-width="1.5"><path d="M8 1l1.5 3.5L13 6l-3.5 1.5L8 11 6.5 7.5 3 6l3.5-1.5L8 1z"/><path d="M12 10l.75 1.75L14.5 12.5l-1.75.75L12 15l-.75-1.75-1.75-.75 1.75-.75z" opacity="0.6"/></svg>
+        AI Add Stores
+      </h3>
+      <button class="modal-close" onclick="closeAiAdd()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Describe what stores to add and Claude will search the directory for matches.</p>
+      <textarea id="aiAddDescription" class="field-input" rows="3" placeholder="e.g. High-rated e-bike shops in Oregon and Washington" style="resize:vertical;min-height:60px;font-family:inherit;"></textarea>
+      <div class="ai-chips" style="margin-top:8px;">
+        <span class="ai-chip" onclick="document.getElementById('aiAddDescription').value='E-bike specialists with 4.5+ star ratings'">High-rated specialists</span>
+        <span class="ai-chip" onclick="document.getElementById('aiAddDescription').value='Bike shops in cities with population over 500k'">Major cities</span>
+        <span class="ai-chip" onclick="document.getElementById('aiAddDescription').value='Outdoor recreation stores that sell e-bikes'">Outdoor/rec stores</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeAiAdd()">Cancel</button>
+      <button class="btn-submit ai" id="aiAddSubmitBtn" onclick="submitAiAdd()">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1l1.5 3.5L13 6l-3.5 1.5L8 11 6.5 7.5 3 6l3.5-1.5L8 1z"/></svg>
+        Find Stores
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Store search modal -->
+<div class="modal-overlay" id="storeSearchOverlay" onclick="if(event.target===this)closeStoreSearch()">
+  <div class="modal-box" style="width:90%;max-width:560px;max-height:80vh;display:flex;flex-direction:column;">
+    <div class="modal-header">
+      <h3>Add Stores to List</h3>
+      <button class="modal-close" onclick="closeStoreSearch()">&times;</button>
+    </div>
+    <div style="padding:16px 24px 0;">
+      <input type="text" id="storeSearchInput" class="field-input" placeholder="Search stores by name, city, or state..." oninput="debounceStoreSearch()">
+    </div>
+    <div class="store-results" id="storeSearchResults" style="padding:0 24px;">
+      <div style="padding:24px;text-align:center;color:var(--text2);font-size:13px;">Type to search stores</div>
+    </div>
+    <div class="modal-footer" style="align-items:center;justify-content:space-between;">
+      <span id="storeSearchCount" style="font-size:13px;color:var(--text2);">0 selected</span>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-cancel" onclick="closeStoreSearch()">Cancel</button>
+        <button class="btn-submit" onclick="addSearchedStores()">Add Selected</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Card editor modal (kanban) -->
+<div class="modal-overlay" id="cardEditorOverlay" onclick="if(event.target===this)closeCardEditor()">
+  <div class="modal-box" style="width:90%;max-width:480px;">
+    <div class="modal-header">
+      <h3 id="cardEditorName"></h3>
+      <button class="modal-close" onclick="closeCardEditor()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="cardEditorMeta" style="font-size:12px;color:var(--text2);margin-bottom:16px;"></div>
+      <div class="editor-grid" style="grid-template-columns:1fr 1fr;">
+        <div class="editor-field">
+          <label>Status</label>
+          <select id="cardEditorStatus" onchange="cardEditorUpdateField('status', this.value)"></select>
+        </div>
+        <div class="editor-field">
+          <label>Referral Source</label>
+          <input type="text" id="cardEditorReferral" onblur="cardEditorUpdateField('referral_source', this.value)">
+        </div>
+      </div>
+      <div class="editor-field" style="margin-top:12px;">
+        <label>Notes</label>
+        <textarea id="cardEditorNotes" onblur="cardEditorUpdateField('notes', this.value)"></textarea>
+      </div>
+      <div id="cardEditorContact" style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──
+let currentList = null;
+let prospects = [];
+let pipelineFilter = '';
+let currentView = 'table';
+let draggedId = null;
+let cardEditorRecordId = null;
+let storeSearchTimer = null;
+const selectedIds = new Set();
+const storeSearchSelected = new Set();
+
+const STATUS_COLORS = {
+  'New': { bg: 'rgba(99,102,241,0.12)', color: '#4f46e5' },
+  'Contacted': { bg: 'rgba(202,138,4,0.12)', color: '#ca8a04' },
+  'Responded': { bg: 'rgba(22,163,74,0.12)', color: '#16a34a' },
+  'Meeting': { bg: 'rgba(8,145,178,0.12)', color: '#0891b2' },
+  'Partner': { bg: 'rgba(147,51,234,0.12)', color: '#9333ea' },
+  'Not Interested': { bg: 'rgba(220,38,38,0.12)', color: '#dc2626' },
+};
+const STORE_TYPE_COLORS = {
+  'dedicated_ebike': { color: '#16a34a', label: 'E-Bike' },
+  'bike_shop': { color: '#0891b2', label: 'Bike Shop' },
+  'outdoor_rec': { color: '#ea580c', label: 'Outdoor' },
+  'motorcycle': { color: '#dc2626', label: 'Moto' },
+  'sporting_goods': { color: '#ca8a04', label: 'Sports' },
+  'other': { color: '#737373', label: 'Other' },
+};
+const PIPELINE = ['New', 'Contacted', 'Responded', 'Meeting', 'Partner', 'Not Interested'];
+
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// ── Toast ──
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = message;
+  container.appendChild(toast);
+  const duration = type === 'error' ? 5000 : 3000;
+  setTimeout(() => {
+    toast.classList.add('leaving');
+    setTimeout(() => toast.remove(), 200);
+  }, duration);
+}
+
+// ── Init ──
+async function init() {
+  // Populate bulk status select
+  document.getElementById('bulkStatusSelect').innerHTML = PIPELINE.map(s => `<option value="${s}">${s}</option>`).join('');
+  await loadLists();
+}
+
+// ── View A: List Overview ──
+async function loadLists() {
+  const loading = document.getElementById('listsLoading');
+  const gridWrap = document.getElementById('listGridWrap');
+  const empty = document.getElementById('listsEmpty');
+  loading.style.display = 'block';
+  gridWrap.style.display = 'none';
+  empty.style.display = 'none';
+
+  try {
+    const resp = await fetch('/api/lists?action=get_lists');
+    const data = await resp.json();
+    const lists = data.lists || [];
+    loading.style.display = 'none';
+
+    if (lists.length === 0) {
+      empty.style.display = 'block';
+      return;
+    }
+
+    gridWrap.style.display = 'block';
+    const grid = document.getElementById('listGrid');
+    grid.innerHTML = lists.map(l => {
+      const statusHtml = PIPELINE
+        .filter(s => l.statuses[s])
+        .map(s => {
+          const c = STATUS_COLORS[s];
+          return `<span class="status-pill" style="background:${c.bg};color:${c.color};">${s}: ${l.statuses[s]}</span>`;
+        }).join('');
+      // Progress bar segments
+      const total = l.count || 1;
+      const segments = PIPELINE.filter(s => l.statuses[s]).map(s => {
+        const c = STATUS_COLORS[s];
+        const pct = ((l.statuses[s] || 0) / total * 100);
+        return `<div class="seg" style="width:${pct}%;background:${c.color};"></div>`;
+      }).join('');
+      return `<div class="list-card" onclick="openList('${esc(l.name)}')">
+        <h3>${esc(l.name)}</h3>
+        <div class="count">${l.count} prospect${l.count !== 1 ? 's' : ''}</div>
+        <div class="status-bar">${statusHtml}</div>
+        <div class="progress-bar">${segments}</div>
+      </div>`;
+    }).join('') + `<div class="list-card new-list-card" onclick="createNewList()">
+      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+      New List
+    </div>`;
+  } catch(e) {
+    loading.textContent = 'Error loading lists: ' + e.message;
+  }
+}
+
+// ── Create List ──
+function createNewList() {
+  document.getElementById('createListOverlay').classList.add('visible');
+  document.getElementById('createListInput').value = '';
+  document.getElementById('createListDescription').value = '';
+  updateCreateBtn();
+  setTimeout(() => document.getElementById('createListInput').focus(), 100);
+}
+function closeCreateList() { document.getElementById('createListOverlay').classList.remove('visible'); }
+function fillAiChip(text) {
+  document.getElementById('createListDescription').value = text;
+  updateCreateBtn();
+  document.getElementById('createListDescription').focus();
+}
+function updateCreateBtn() {
+  const btn = document.getElementById('createListSubmitBtn');
+  const desc = document.getElementById('createListDescription').value.trim();
+  if (desc) {
+    btn.textContent = 'Create with AI';
+    btn.className = 'btn-submit ai';
+  } else {
+    btn.textContent = 'Create Empty List';
+    btn.className = 'btn-submit';
+  }
+  btn.disabled = !document.getElementById('createListInput').value.trim();
+}
+
+async function submitCreateList() {
+  const name = document.getElementById('createListInput').value.trim();
+  if (!name) return;
+  const description = document.getElementById('createListDescription').value.trim();
+  closeCreateList();
+
+  if (!description) {
+    openList(name);
+    return;
+  }
+
+  // AI flow — show progress steps
+  currentList = name;
+  pipelineFilter = '';
+  selectedIds.clear();
+  updateToolbar();
+  document.getElementById('listOverview').style.display = 'none';
+  document.getElementById('listDetail').classList.add('visible');
+  document.getElementById('listName').textContent = name;
+  document.getElementById('listCount').textContent = '';
+  document.getElementById('pipeline').innerHTML = '';
+  setView(currentView, true);
+  showAiProgress(description);
+}
+
+function showAiProgress(description) {
+  const steps = [
+    'Analyzing your criteria...',
+    'Scanning 3,500+ stores...',
+    'Selecting best matches...',
+    'Building your list...',
+  ];
+  document.getElementById('prospectContent').innerHTML = `<div class="empty" style="padding:80px 20px;">
+    <div class="ai-progress">
+      ${steps.map((s, i) => `<div class="ai-step${i === 0 ? ' active' : ''}" id="aiStep${i}"><div class="dot"></div><span>${s}</span></div>`).join('')}
+    </div>
+    <p style="margin-top:24px;font-size:12px;color:var(--text3);">"${esc(description)}"</p>
+  </div>`;
+  document.getElementById('kanbanContent').innerHTML = '';
+
+  // Auto-advance steps cosmetically
+  let step = 0;
+  const interval = setInterval(() => {
+    step++;
+    if (step >= steps.length) { clearInterval(interval); return; }
+    for (let i = 0; i < steps.length; i++) {
+      const el = document.getElementById('aiStep' + i);
+      if (!el) continue;
+      el.className = i < step ? 'ai-step done' : i === step ? 'ai-step active' : 'ai-step';
+    }
+  }, 3000);
+
+  // Actual API call
+  fetch('/api/lists', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'ai_populate', list_name: currentList, description }),
+  })
+  .then(r => r.json())
+  .then(data => {
+    clearInterval(interval);
+    if (data.error) throw new Error(data.error);
+    const matched = data.matched || data.added || 0;
+    showToast(`Found and added <strong>${matched}</strong> matching stores`, 'success');
+    openList(currentList);
+  })
+  .catch(e => {
+    clearInterval(interval);
+    showToast(`AI populate failed: ${e.message}`, 'error');
+    document.getElementById('prospectContent').innerHTML = `<div class="empty">
+      <div class="empty-icon">&#9888;&#65039;</div>
+      <h3>AI populate failed</h3>
+      <p>${esc(e.message)}</p>
+      <button class="btn-add" onclick="openStoreSearch()">+ Add Stores Manually</button>
+    </div>`;
+  });
+}
+
+// ── AI Add to existing list ──
+function openAiAddModal() {
+  document.getElementById('aiAddDescription').value = '';
+  document.getElementById('aiAddSubmitBtn').disabled = false;
+  document.getElementById('aiAddSubmitBtn').innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1l1.5 3.5L13 6l-3.5 1.5L8 11 6.5 7.5 3 6l3.5-1.5L8 1z"/></svg> Find Stores';
+  document.getElementById('aiAddOverlay').classList.add('visible');
+  setTimeout(() => document.getElementById('aiAddDescription').focus(), 100);
+}
+function closeAiAdd() { document.getElementById('aiAddOverlay').classList.remove('visible'); }
+
+async function submitAiAdd() {
+  const description = document.getElementById('aiAddDescription').value.trim();
+  if (!description) return;
+  const btn = document.getElementById('aiAddSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Searching...';
+  closeAiAdd();
+  showAiProgress(description);
+}
+
+// ── View B: List Detail ──
+async function openList(name) {
+  currentList = name;
+  pipelineFilter = '';
+  selectedIds.clear();
+  updateToolbar();
+
+  document.getElementById('listOverview').style.display = 'none';
+  document.getElementById('listDetail').classList.add('visible');
+  document.getElementById('listName').textContent = name;
+  document.getElementById('prospectContent').innerHTML = '<div class="loading">Loading prospects...</div>';
+  document.getElementById('kanbanContent').innerHTML = '';
+  setView(currentView, true);
+
+  try {
+    const resp = await fetch(`/api/lists?action=get_prospects&list=${encodeURIComponent(name)}`);
+    const data = await resp.json();
+    prospects = data.prospects || [];
+    document.getElementById('listCount').textContent = `${prospects.length} prospect${prospects.length !== 1 ? 's' : ''}`;
+    renderPipeline();
+    renderCurrentView();
+  } catch(e) {
+    document.getElementById('prospectContent').innerHTML = `<div class="empty"><h3>Error</h3><p>${esc(e.message)}</p></div>`;
+  }
+}
+
+function showOverview() {
+  currentList = null;
+  selectedIds.clear();
+  updateToolbar();
+  document.getElementById('listDetail').classList.remove('visible');
+  document.getElementById('listOverview').style.display = 'block';
+  loadLists();
+}
+
+// ── View toggle ──
+function setView(view, skipRender) {
+  currentView = view;
+  document.getElementById('viewTable').classList.toggle('active', view === 'table');
+  document.getElementById('viewKanban').classList.toggle('active', view === 'kanban');
+  document.getElementById('prospectContent').style.display = view === 'table' ? 'block' : 'none';
+  document.getElementById('kanbanContent').style.display = view === 'kanban' ? 'block' : 'none';
+  if (!skipRender) renderCurrentView();
+}
+
+function renderCurrentView() {
+  if (currentView === 'kanban') renderKanban();
+  else renderProspects();
+}
+
+// ── Pipeline ──
+function renderPipeline() {
+  const counts = {};
+  PIPELINE.forEach(s => counts[s] = 0);
+  prospects.forEach(p => { const s = p.fields['Outreach Status'] || 'New'; counts[s] = (counts[s] || 0) + 1; });
+  const container = document.getElementById('pipeline');
+  const showFilter = currentView === 'table';
+
+  container.innerHTML = `<span class="pipeline-pill${pipelineFilter === '' ? ' active' : ''}"
+    style="background:var(--surface2);color:var(--text);"
+    onclick="${showFilter ? "filterPipeline('')" : ''}">All (${prospects.length})</span>` +
+    PIPELINE.map(s => {
+      const c = STATUS_COLORS[s];
+      const count = counts[s] || 0;
+      if (count === 0) return '';
+      return `<span class="pipeline-pill${pipelineFilter === s ? ' active' : ''}"
+        style="background:${c.bg};color:${c.color};"
+        onclick="${showFilter ? `filterPipeline('${s}')` : ''}">${s} (${count})</span>`;
+    }).join('');
+}
+
+function filterPipeline(status) {
+  if (currentView !== 'table') return;
+  pipelineFilter = (pipelineFilter === status) ? '' : status;
+  renderPipeline();
+  renderProspects();
+}
+
+// ── Table view ──
+function renderProspects() {
+  const filtered = pipelineFilter
+    ? prospects.filter(p => (p.fields['Outreach Status'] || 'New') === pipelineFilter)
+    : prospects;
+
+  if (prospects.length === 0) {
+    document.getElementById('prospectContent').innerHTML = `<div class="empty">
+      <div class="empty-icon">&#128203;</div>
+      <h3>No prospects yet</h3>
+      <p>Use AI to find matching stores or search the directory manually.</p>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:20px;">
+        <button class="btn-add" onclick="openAiAddModal()" style="background:linear-gradient(135deg,var(--accent),var(--purple));">&#10024; AI Add Stores</button>
+        <button class="btn-add" onclick="openStoreSearch()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);">Search Manually</button>
+      </div>
+    </div>`;
+    return;
+  }
+
+  if (filtered.length === 0) {
+    document.getElementById('prospectContent').innerHTML = `<div class="empty"><h3>No prospects with status "${esc(pipelineFilter)}"</h3></div>`;
+    return;
+  }
+
+  const rows = filtered.map(p => {
+    const f = p.fields;
+    const status = f['Outreach Status'] || 'New';
+    const sc = STATUS_COLORS[status] || STATUS_COLORS['New'];
+    const rating = f['Rating'] ? `${f['Rating']}★` : '';
+    const checked = selectedIds.has(p.id) ? 'checked' : '';
+
+    return `<tr class="prospect-row" data-id="${p.id}" onclick="toggleEditor('${p.id}', event)">
+      <td onclick="event.stopPropagation()"><input type="checkbox" ${checked} onchange="toggleSelect('${p.id}', this.checked)"></td>
+      <td><strong>${esc(f['Store Name'] || '')}</strong></td>
+      <td>${esc(f['City'] || '')}${f['City'] && f['State'] ? ', ' : ''}${esc(f['State'] || '')}</td>
+      <td>${esc(f['Referral Source'] || '')}</td>
+      <td>${rating}</td>
+      <td><span class="status-badge" style="background:${sc.bg};color:${sc.color};">${status}</span></td>
+    </tr>
+    <tr class="inline-editor" id="editor-${p.id}">
+      <td colspan="6" class="editor-cell">
+        <div class="editor-grid">
+          <div class="editor-field"><label>Status</label>
+            <select onchange="updateField('${p.id}', 'status', this.value)">
+              ${PIPELINE.map(s => `<option value="${s}"${s === status ? ' selected' : ''}>${s}</option>`).join('')}
+            </select></div>
+          <div class="editor-field"><label>Referral Source</label>
+            <input type="text" value="${esc(f['Referral Source'] || '')}" onblur="updateField('${p.id}', 'referral_source', this.value)"></div>
+          <div class="editor-field"><label>Notes</label>
+            <textarea onblur="updateField('${p.id}', 'notes', this.value)">${esc(f['Notes'] || '')}</textarea></div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
+          ${f['Phone'] ? `<span style="font-size:12px;color:var(--text2);">Phone: ${esc(f['Phone'])}</span>` : ''}
+          ${f['Email'] ? `<span style="font-size:12px;color:var(--text2);">Email: ${esc(f['Email'])}</span>` : ''}
+          ${f['Website'] ? `<a href="${esc(f['Website'])}" target="_blank" style="font-size:12px;color:var(--accent);">Website</a>` : ''}
+          <span style="flex:1;"></span>
+          <a href="index.html?detail=${findStoreIndex(f['Store Name'])}" style="font-size:12px;color:var(--accent);">View in Directory</a>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('prospectContent').innerHTML = `
+    <table class="prospect-table">
+      <thead><tr><th></th><th>Store</th><th>Location</th><th>Referral</th><th>Rating</th><th>Status</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+let storeData = null;
+function findStoreIndex(name) {
+  if (!storeData) {
+    try { const xhr = new XMLHttpRequest(); xhr.open('GET', '/data.json', false); xhr.send(); if (xhr.status === 200) storeData = JSON.parse(xhr.responseText); } catch(e) { storeData = []; }
+  }
+  if (!storeData) return 0;
+  const idx = storeData.findIndex(s => s.name === name);
+  return idx >= 0 ? idx : 0;
+}
+
+function toggleEditor(id, event) {
+  if (event.target.tagName === 'INPUT' || event.target.tagName === 'A') return;
+  const editor = document.getElementById('editor-' + id);
+  const row = document.querySelector(`.prospect-row[data-id="${id}"]`);
+  const isVisible = editor.classList.contains('visible');
+  document.querySelectorAll('.inline-editor.visible').forEach(el => el.classList.remove('visible'));
+  document.querySelectorAll('.prospect-row.expanded').forEach(el => el.classList.remove('expanded'));
+  if (!isVisible) { editor.classList.add('visible'); row.classList.add('expanded'); }
+}
+
+// ── Kanban view ──
+function renderKanban() {
+  const container = document.getElementById('kanbanContent');
+  if (prospects.length === 0) {
+    container.innerHTML = `<div class="empty">
+      <div class="empty-icon">&#128203;</div>
+      <h3>No prospects yet</h3>
+      <p>Use AI to find matching stores or search the directory manually.</p>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:20px;">
+        <button class="btn-add" onclick="openAiAddModal()" style="background:linear-gradient(135deg,var(--accent),var(--purple));">&#10024; AI Add Stores</button>
+        <button class="btn-add" onclick="openStoreSearch()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);">Search Manually</button>
+      </div>
+    </div>`;
+    return;
+  }
+
+  const columns = {};
+  PIPELINE.forEach(s => columns[s] = []);
+  prospects.forEach(p => { const status = p.fields['Outreach Status'] || 'New'; if (columns[status]) columns[status].push(p); });
+
+  container.innerHTML = '<div class="kanban">' + PIPELINE.map(status => {
+    const cards = columns[status];
+    const sc = STATUS_COLORS[status];
+    return `<div class="kanban-column" data-status="${status}"
+                ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '${status}')">
+      <div class="kanban-column-header" style="color:${sc.color};">
+        ${status}<span class="col-count">${cards.length}</span>
+      </div>
+      <div class="kanban-cards">
+        ${cards.map(p => {
+          const f = p.fields;
+          const loc = [f['City'], f['State']].filter(Boolean).join(', ');
+          const st = STORE_TYPE_COLORS[f['Store Type']] || STORE_TYPE_COLORS['other'];
+          return `<div class="kanban-card" draggable="true" data-id="${p.id}"
+                      ondragstart="onDragStart(event, '${p.id}')" ondragend="onDragEnd(event)"
+                      onclick="openCardEditor('${p.id}')">
+            <h4>${esc(f['Store Name'] || '')}</h4>
+            <div class="meta">${esc(loc)}</div>
+            ${f['Notes'] ? `<div class="meta" style="margin-top:4px;font-style:italic;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${esc(f['Notes'])}</div>` : ''}
+            <div class="card-footer">
+              <span class="type-dot" style="background:${st.color};"></span>
+              <span class="type-label">${st.label}</span>
+              ${f['Rating'] ? `<span class="rating">${f['Rating']}★</span>` : ''}
+            </div>
+          </div>`;
+        }).join('') || `<div class="kanban-empty">Drag cards here</div>`}
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+// ── Drag and Drop ──
+function onDragStart(event, id) {
+  draggedId = id;
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', id);
+  requestAnimationFrame(() => event.target.classList.add('dragging'));
+}
+function onDragEnd(event) {
+  event.target.classList.remove('dragging');
+  document.querySelectorAll('.kanban-column').forEach(col => col.classList.remove('drag-over'));
+}
+function onDragOver(event) {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  const col = event.target.closest('.kanban-column');
+  if (col) col.classList.add('drag-over');
+}
+function onDragLeave(event) {
+  const col = event.target.closest('.kanban-column');
+  if (col && !col.contains(event.relatedTarget)) col.classList.remove('drag-over');
+}
+async function onDrop(event, newStatus) {
+  event.preventDefault();
+  document.querySelectorAll('.kanban-column').forEach(col => col.classList.remove('drag-over'));
+  if (!draggedId) return;
+  const prospect = prospects.find(p => p.id === draggedId);
+  if (!prospect) return;
+  const oldStatus = prospect.fields['Outreach Status'] || 'New';
+  if (oldStatus === newStatus) { draggedId = null; return; }
+  prospect.fields['Outreach Status'] = newStatus;
+  renderKanban();
+  renderPipeline();
+  try {
+    await fetch('/api/lists', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update_prospect', record_id: draggedId, status: newStatus }) });
+    showToast(`Moved to <strong>${newStatus}</strong>`, 'success');
+  } catch(e) {
+    prospect.fields['Outreach Status'] = oldStatus;
+    renderKanban(); renderPipeline();
+    showToast('Status update failed', 'error');
+  }
+  draggedId = null;
+}
+
+// ── Card editor modal ──
+function openCardEditor(recordId) {
+  const prospect = prospects.find(p => p.id === recordId);
+  if (!prospect) return;
+  cardEditorRecordId = recordId;
+  const f = prospect.fields;
+  document.getElementById('cardEditorName').textContent = f['Store Name'] || '';
+  document.getElementById('cardEditorMeta').textContent = [f['City'], f['State']].filter(Boolean).join(', ');
+  const statusSelect = document.getElementById('cardEditorStatus');
+  statusSelect.innerHTML = PIPELINE.map(s => `<option value="${s}"${s === (f['Outreach Status'] || 'New') ? ' selected' : ''}>${s}</option>`).join('');
+  document.getElementById('cardEditorReferral').value = f['Referral Source'] || '';
+  document.getElementById('cardEditorNotes').value = f['Notes'] || '';
+  const contact = [];
+  if (f['Phone']) contact.push(`<span style="font-size:12px;color:var(--text2);">Phone: ${esc(f['Phone'])}</span>`);
+  if (f['Email']) contact.push(`<span style="font-size:12px;color:var(--text2);">Email: ${esc(f['Email'])}</span>`);
+  if (f['Website']) contact.push(`<a href="${esc(f['Website'])}" target="_blank" style="font-size:12px;color:var(--accent);">Website</a>`);
+  contact.push(`<span style="flex:1;"></span>`);
+  contact.push(`<a href="index.html?detail=${findStoreIndex(f['Store Name'])}" style="font-size:12px;color:var(--accent);">View in Directory</a>`);
+  document.getElementById('cardEditorContact').innerHTML = contact.join('');
+  document.getElementById('cardEditorOverlay').classList.add('visible');
+}
+function closeCardEditor() { document.getElementById('cardEditorOverlay').classList.remove('visible'); cardEditorRecordId = null; }
+async function cardEditorUpdateField(field, value) { if (cardEditorRecordId) await updateField(cardEditorRecordId, field, value); }
+
+// ── Shared update ──
+async function updateField(recordId, field, value) {
+  const body = { action: 'update_prospect', record_id: recordId };
+  body[field] = value;
+  try {
+    await fetch('/api/lists', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const prospect = prospects.find(p => p.id === recordId);
+    if (prospect) {
+      if (field === 'status') prospect.fields['Outreach Status'] = value;
+      else if (field === 'referral_source') prospect.fields['Referral Source'] = value;
+      else if (field === 'notes') prospect.fields['Notes'] = value;
+      if (field === 'status') { renderPipeline(); renderCurrentView(); }
+    }
+  } catch(e) { showToast('Update failed', 'error'); }
+}
+
+// ── Selection ──
+function toggleSelect(id, checked) { if (checked) selectedIds.add(id); else selectedIds.delete(id); updateToolbar(); }
+function clearSelection() {
+  selectedIds.clear();
+  document.querySelectorAll('.prospect-table input[type="checkbox"]').forEach(cb => cb.checked = false);
+  updateToolbar();
+}
+function updateToolbar() {
+  const toolbar = document.getElementById('toolbar');
+  const count = selectedIds.size;
+  if (count > 0 && currentView === 'table') {
+    toolbar.classList.add('visible');
+    document.getElementById('selCount').textContent = `${count} selected`;
+  } else { toolbar.classList.remove('visible'); }
+}
+
+// ── Bulk actions ──
+function openBulkStatusModal() { document.getElementById('bulkStatusOverlay').classList.add('visible'); }
+function closeBulkStatus() { document.getElementById('bulkStatusOverlay').classList.remove('visible'); }
+
+async function applyBulkStatus() {
+  const status = document.getElementById('bulkStatusSelect').value;
+  const ids = Array.from(selectedIds);
+  closeBulkStatus();
+  try {
+    await fetch('/api/lists', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'bulk_status', record_ids: ids, status }) });
+    ids.forEach(id => { const p = prospects.find(pr => pr.id === id); if (p) p.fields['Outreach Status'] = status; });
+    clearSelection(); renderPipeline(); renderCurrentView();
+    showToast(`Updated ${ids.length} prospect${ids.length !== 1 ? 's' : ''} to <strong>${status}</strong>`, 'success');
+  } catch(e) { showToast('Bulk update failed: ' + e.message, 'error'); }
+}
+
+async function removeSelectedFromList() {
+  const ids = Array.from(selectedIds);
+  if (!confirm(`Remove ${ids.length} prospect${ids.length !== 1 ? 's' : ''} from "${currentList}"?`)) return;
+  try {
+    await fetch('/api/lists', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'remove_from_list', record_ids: ids, list_name: currentList }) });
+    prospects = prospects.filter(p => !ids.includes(p.id));
+    clearSelection();
+    document.getElementById('listCount').textContent = `${prospects.length} prospect${prospects.length !== 1 ? 's' : ''}`;
+    renderPipeline(); renderCurrentView();
+    showToast(`Removed ${ids.length} prospect${ids.length !== 1 ? 's' : ''}`, 'info');
+  } catch(e) { showToast('Remove failed: ' + e.message, 'error'); }
+}
+
+// ── Store search ──
+function openStoreSearch() {
+  storeSearchSelected.clear();
+  document.getElementById('storeSearchInput').value = '';
+  document.getElementById('storeSearchResults').innerHTML = '<div style="padding:24px;text-align:center;color:var(--text2);font-size:13px;">Type to search stores</div>';
+  document.getElementById('storeSearchCount').textContent = '0 selected';
+  document.getElementById('storeSearchOverlay').classList.add('visible');
+  setTimeout(() => document.getElementById('storeSearchInput').focus(), 100);
+}
+function closeStoreSearch() { document.getElementById('storeSearchOverlay').classList.remove('visible'); }
+function debounceStoreSearch() { clearTimeout(storeSearchTimer); storeSearchTimer = setTimeout(doStoreSearch, 300); }
+
+async function doStoreSearch() {
+  const q = document.getElementById('storeSearchInput').value.trim();
+  if (q.length < 2) {
+    document.getElementById('storeSearchResults').innerHTML = '<div style="padding:24px;text-align:center;color:var(--text2);font-size:13px;">Type at least 2 characters</div>';
+    return;
+  }
+  try {
+    const resp = await fetch(`/api/lists?action=search_stores&q=${encodeURIComponent(q)}&limit=30`);
+    const data = await resp.json();
+    const stores = data.stores || [];
+    if (stores.length === 0) {
+      document.getElementById('storeSearchResults').innerHTML = `<div style="padding:24px;text-align:center;color:var(--text2);font-size:13px;">No stores found for "${esc(q)}"</div>`;
+      return;
+    }
+    const existingNames = new Set(prospects.map(p => p.fields['Store Name']));
+    document.getElementById('storeSearchResults').innerHTML = stores.map(s => {
+      const alreadyAdded = existingNames.has(s.name);
+      const checked = storeSearchSelected.has(s.idx) ? 'checked' : '';
+      return `<div class="store-result${alreadyAdded ? ' already' : ''}${storeSearchSelected.has(s.idx) ? ' selected' : ''}" onclick="toggleStoreSearchItem(${s.idx}, this, ${alreadyAdded})">
+        <input type="checkbox" ${checked} ${alreadyAdded ? 'disabled' : ''} onclick="event.stopPropagation()">
+        <div class="info">
+          <strong>${esc(s.name)}</strong>
+          <div class="loc">${esc(s.city || '')}${s.city && s.state ? ', ' : ''}${esc(s.state || '')}${s.rating ? ` · ${s.rating}★` : ''}</div>
+        </div>
+        ${alreadyAdded ? '<span class="in-list">In list</span>' : ''}
+      </div>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('storeSearchResults').innerHTML = `<div style="padding:24px;text-align:center;color:var(--red);font-size:13px;">Search error: ${esc(e.message)}</div>`;
+  }
+}
+
+function toggleStoreSearchItem(idx, el, alreadyAdded) {
+  if (alreadyAdded) return;
+  const cb = el.querySelector('input[type="checkbox"]');
+  if (storeSearchSelected.has(idx)) { storeSearchSelected.delete(idx); cb.checked = false; el.classList.remove('selected'); }
+  else { storeSearchSelected.add(idx); cb.checked = true; el.classList.add('selected'); }
+  document.getElementById('storeSearchCount').textContent = `${storeSearchSelected.size} selected`;
+}
+
+async function addSearchedStores() {
+  if (storeSearchSelected.size === 0) return;
+  const count = storeSearchSelected.size;
+  closeStoreSearch();
+  try {
+    const resp = await fetch('/api/lists', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'add_to_list', store_indices: Array.from(storeSearchSelected), list_name: currentList }) });
+    const data = await resp.json();
+    if (data.success) {
+      showToast(`Added <strong>${count}</strong> store${count !== 1 ? 's' : ''} to list`, 'success');
+      await openList(currentList);
+    }
+  } catch(e) { showToast('Failed to add stores: ' + e.message, 'error'); }
+}
+
+// ── Keyboard ──
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (document.getElementById('storeSearchOverlay').classList.contains('visible')) closeStoreSearch();
+    else if (document.getElementById('createListOverlay').classList.contains('visible')) closeCreateList();
+    else if (document.getElementById('aiAddOverlay').classList.contains('visible')) closeAiAdd();
+    else if (document.getElementById('bulkStatusOverlay').classList.contains('visible')) closeBulkStatus();
+    else if (document.getElementById('cardEditorOverlay').classList.contains('visible')) closeCardEditor();
+  }
+});
+
+// ── Boot ──
+init();
+</script>
+</body>
+</html>

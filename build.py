@@ -288,6 +288,20 @@ select:focus {{ border-color: rgba(0,0,0,0.15); }}
 .toolbar .btn-green:hover {{ opacity: 0.85; }}
 .toolbar .spacer {{ flex: 1; }}
 
+/* ── Context menu ── */
+.ctx-menu {{
+  position: fixed; z-index: 500; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); padding: 4px 0;
+  min-width: 180px; display: none;
+}}
+.ctx-menu.visible {{ display: block; }}
+.ctx-menu button {{
+  display: block; width: 100%; text-align: left; padding: 8px 16px; border: none;
+  background: none; font-size: 13px; cursor: pointer; color: var(--text);
+  font-family: inherit;
+}}
+.ctx-menu button:hover {{ background: var(--surface2); }}
+
 /* ── Modal ── */
 .modal-overlay {{
   position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.4);
@@ -460,7 +474,10 @@ select:focus {{ border-color: rgba(0,0,0,0.15); }}
       <div class="divider"></div>
       <h1>Retailer Directory</h1>
     </div>
-    <div class="header-meta">3,573 EV retailers across 49 states</div>
+    <div class="header-meta">
+      <a href="lists.html" style="color:var(--accent);text-decoration:none;font-weight:500;margin-right:16px;">Prospect Lists</a>
+      3,573 EV retailers across 49 states
+    </div>
   </div>
 </header>
 
@@ -500,6 +517,13 @@ select:focus {{ border-color: rgba(0,0,0,0.15); }}
   </div>
 </main>
 
+<!-- Context menu -->
+<div class="ctx-menu" id="ctxMenu">
+  <button onclick="ctxAddToList()">Add to List</button>
+  <button onclick="ctxEnrich()">Enrich</button>
+  <button onclick="ctxViewDetail()">View Details</button>
+</div>
+
 <!-- Selection toolbar -->
 <div class="toolbar" id="toolbar">
   <span class="sel-count" id="selCount">0 selected</span>
@@ -509,8 +533,38 @@ select:focus {{ border-color: rgba(0,0,0,0.15); }}
   <button class="btn-secondary" onclick="tagSelected()" style="color:#00ced1;">Tag</button>
   <button class="btn-secondary" onclick="removeSelected()" style="color:var(--orange);">Remove</button>
   <span class="spacer"></span>
+  <button class="btn-secondary" onclick="openAddToListModal()" style="color:var(--accent);">Add to List</button>
   <button class="btn-primary" onclick="enrichSelected()">Enrich Selected</button>
   <button class="btn-green" onclick="exportSelected()">Export to Airtable</button>
+</div>
+
+<!-- Add to List modal -->
+<div class="modal-overlay" id="listModalOverlay" onclick="if(event.target===this)closeListModal()">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-header">
+      <h3>Add to Prospect List</h3>
+      <button class="modal-close" onclick="closeListModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:16px;">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:6px;">List</label>
+        <select id="listSelect" style="width:100%;margin-bottom:8px;" onchange="if(this.value==='__new__')document.getElementById('newListInput').style.display='block';">
+          <option value="">Select a list...</option>
+          <option value="__new__">+ Create new list</option>
+        </select>
+        <input type="text" id="newListInput" placeholder="New list name..." style="width:100%;display:none;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;background:transparent;color:var(--text);outline:none;">
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:6px;">Referral Source (optional)</label>
+        <input type="text" id="listReferralInput" placeholder="e.g. Trade show, Cold outreach..." style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;background:transparent;color:var(--text);outline:none;">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <span class="spacer" style="flex:1;"></span>
+      <button class="btn-secondary" onclick="closeListModal()">Cancel</button>
+      <button class="btn-primary" onclick="submitAddToList()">Add</button>
+    </div>
+  </div>
 </div>
 
 <!-- Enrichment modal -->
@@ -570,6 +624,10 @@ function init() {{
   document.getElementById('sortSelect').addEventListener('change', applyFilters);
   loadEnrichmentStatus();
   loadTags();
+  // Deep-link: ?detail=IDX opens store detail modal
+  const params = new URLSearchParams(window.location.search);
+  const detailIdx = params.get('detail');
+  if (detailIdx !== null) openDetail(parseInt(detailIdx));
 }}
 
 async function loadTags() {{
@@ -812,7 +870,7 @@ function renderStore(d) {{
     tags.forEach(t => {{ extraBadges += ` <span class="badge tag">${{esc(t)}}</span>`; }});
   }}
 
-  return `<div class="store-card${{selClass}}${{removedClass}}" data-idx="${{d._idx}}" onclick="onCardClick(event, ${{d._idx}})" ondblclick="onCardDblClick(event, ${{d._idx}})">
+  return `<div class="store-card${{selClass}}${{removedClass}}" data-idx="${{d._idx}}" onclick="onCardClick(event, ${{d._idx}})" ondblclick="onCardDblClick(event, ${{d._idx}})" oncontextmenu="onCardContext(event, ${{d._idx}})">
     <div>
       <div class="store-name">${{esc(d.name)}}${{extraBadges}}</div>
       <div class="store-address">${{esc(d.address)}}</div>
@@ -997,6 +1055,80 @@ async function exportSelected() {{
   document.getElementById('modalCloseBtn').style.display = 'block';
 }}
 
+// ── Add to List ─────────────────────────────────────────────────────────
+async function openAddToListModal() {{
+  const sel = document.getElementById('listSelect');
+  // Keep first two options, remove the rest
+  while (sel.options.length > 2) sel.remove(2);
+  document.getElementById('newListInput').style.display = 'none';
+  document.getElementById('newListInput').value = '';
+  document.getElementById('listReferralInput').value = '';
+  sel.value = '';
+  // Fetch existing lists
+  try {{
+    const resp = await fetch('/api/lists?action=get_lists');
+    if (resp.ok) {{
+      const data = await resp.json();
+      (data.lists || []).forEach(l => {{
+        const opt = document.createElement('option');
+        opt.value = l.name;
+        opt.textContent = `${{l.name}} (${{l.count}})`;
+        sel.appendChild(opt);
+      }});
+    }}
+  }} catch(e) {{}}
+  document.getElementById('listModalOverlay').classList.add('visible');
+}}
+
+function closeListModal() {{
+  document.getElementById('listModalOverlay').classList.remove('visible');
+}}
+
+async function submitAddToList() {{
+  const sel = document.getElementById('listSelect');
+  let listName = sel.value;
+  if (listName === '__new__') {{
+    listName = document.getElementById('newListInput').value.trim();
+  }}
+  if (!listName) {{ alert('Please select or create a list.'); return; }}
+
+  const referral = document.getElementById('listReferralInput').value.trim() || undefined;
+  const indices = Array.from(selected);
+  if (indices.length === 0) return;
+
+  closeListModal();
+  openModal('Adding to List');
+  const log = document.getElementById('modalLog');
+  const fill = document.getElementById('progressFill');
+  const status = document.getElementById('modalStatus');
+  log.innerHTML = '<div class="log-entry"><span class="log-status scraping">adding</span><span class="log-name">Adding stores to list...</span></div>';
+  fill.style.width = '50%';
+  status.textContent = `Adding ${{indices.length}} stores to "${{listName}}"...`;
+  document.getElementById('modalCloseBtn').style.display = 'none';
+
+  try {{
+    const resp = await fetch('/api/lists', {{
+      method: 'POST',
+      headers: {{'Content-Type': 'application/json'}},
+      body: JSON.stringify({{action: 'add_to_list', store_indices: indices, list_name: listName, referral_source: referral}}),
+    }});
+    const data = await resp.json();
+    fill.style.width = '100%';
+    if (data.success) {{
+      status.textContent = 'Done!';
+      log.innerHTML = `<div class="log-entry"><span class="log-status success">done</span><span class="log-name">Added ${{data.added}} stores to "${{esc(listName)}}"</span></div>`;
+    }} else {{
+      status.textContent = 'Failed';
+      log.innerHTML = `<div class="log-entry"><span class="log-status error">error</span><span class="log-name">${{esc(data.error || 'Unknown error')}}</span></div>`;
+    }}
+  }} catch(e) {{
+    fill.style.width = '100%';
+    status.textContent = 'Error: ' + e.message;
+    log.innerHTML = `<div class="log-entry"><span class="log-status error">error</span><span class="log-name">${{esc(e.message)}}</span></div>`;
+  }}
+  document.getElementById('modalCloseBtn').style.display = 'block';
+}}
+
 // ── Modal helpers ────────────────────────────────────────────────────────
 function openModal(title) {{
   document.getElementById('modalTitle').textContent = title;
@@ -1005,6 +1137,43 @@ function openModal(title) {{
 
 function closeModal() {{
   document.getElementById('modalOverlay').classList.remove('visible');
+}}
+
+// ── Context menu ─────────────────────────────────────────────────────────
+let ctxIdx = null;
+function onCardContext(event, idx) {{
+  event.preventDefault();
+  ctxIdx = idx;
+  // If this card isn't selected, select it
+  if (!selected.has(idx)) {{
+    toggleSelect(idx, true);
+    const card = document.querySelector(`.store-card[data-idx="${{idx}}"]`);
+    if (card) card.classList.add('selected');
+    const cb = card?.querySelector('input[type="checkbox"]');
+    if (cb) cb.checked = true;
+    updateSelectionToolbar();
+  }}
+  const menu = document.getElementById('ctxMenu');
+  menu.style.left = Math.min(event.clientX, window.innerWidth - 200) + 'px';
+  menu.style.top = Math.min(event.clientY, window.innerHeight - 120) + 'px';
+  menu.classList.add('visible');
+}}
+document.addEventListener('click', () => document.getElementById('ctxMenu').classList.remove('visible'));
+document.addEventListener('contextmenu', (e) => {{
+  if (!e.target.closest('.store-card')) document.getElementById('ctxMenu').classList.remove('visible');
+}});
+
+function ctxAddToList() {{
+  document.getElementById('ctxMenu').classList.remove('visible');
+  openAddToListModal();
+}}
+function ctxEnrich() {{
+  document.getElementById('ctxMenu').classList.remove('visible');
+  enrichSelected();
+}}
+function ctxViewDetail() {{
+  document.getElementById('ctxMenu').classList.remove('visible');
+  if (ctxIdx !== null) openDetail(ctxIdx);
 }}
 
 // ── Row click handler ────────────────────────────────────────────────────

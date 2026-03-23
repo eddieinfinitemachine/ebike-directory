@@ -71,11 +71,14 @@ TABLE_SCHEMA = {
             {"name": "New", "color": "blueBright"},
             {"name": "Contacted", "color": "yellowBright"},
             {"name": "Responded", "color": "greenBright"},
+            {"name": "Meeting", "color": "cyanBright"},
             {"name": "Not Interested", "color": "redBright"},
             {"name": "Partner", "color": "purpleBright"},
         ]}},
         {"name": "Tags", "type": "multilineText"},
         {"name": "Notes", "type": "multilineText"},
+        {"name": "Prospect Lists", "type": "multipleSelects", "options": {"choices": []}},
+        {"name": "Referral Source", "type": "singleLineText"},
     ],
 }
 
